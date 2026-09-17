@@ -31,14 +31,22 @@ class Settings(BaseModel):
     ICE_IMPEDANCE_MULTIPLIER: float = 1.5  # Beta ice
     HARD_RISK_THRESHOLD: float = 0.90     # Impassable barrier
     
-    # Base Reference Ports & Stations
+    # Base Reference Ports & Research Stations
     STATIONS: Dict[str, Tuple[float, float]] = {
         "Rothera Station": (-67.5700, -68.1236),
+        "Maitri Station (India)": (-70.7667, 11.7333),
+        "Bharati Station (India)": (-69.4075, 76.1872),
+        "Dakshin Gangotri (India)": (-70.7500, 11.6333),
+        "Halley Station": (-75.4333, -26.2167),
+        "Grytviken / South Georgia": (-54.2833, -36.4833),
         "Faraday / Vernadsky": (-65.2500, -64.2667),
         "Deception Island": (-63.0000, -60.7000),
         "Signy Island": (-60.7000, -45.6000),
-        "Grytviken / South Georgia": (-54.2833, -36.4833),
-        "Halley Station": (-75.4333, -26.2167),
+        "McMurdo Station (USA)": (-77.8500, 166.6667),
+        "Casey Station (Australia)": (-66.2833, 110.5333),
+        "Davis Station (Australia)": (-68.5767, 77.9672),
+        "Mawson Station (Australia)": (-67.6033, 62.8733),
+        "Esperanza Base (Argentina)": (-63.3978, -56.9989),
         "Fossil Bluff": (-71.3167, -68.2833),
     }
 

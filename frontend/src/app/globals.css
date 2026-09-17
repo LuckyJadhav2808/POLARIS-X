@@ -1,41 +1,115 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --canvas: #F8FAFC;
-  --surface: #FFFFFF;
-  --foreground: #0F172A;
+  --canvas: #060911;
+  --surface-neomorph: #0B111E;
+  --surface-inset: #04070E;
+  --glacio-cyan: #00F0FF;
+  --glacio-mint: #00FFA3;
+  --glacio-crimson: #FF2E63;
+  --glacio-amber: #FFB800;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--canvas);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #F1F5F9;
+  background-color: var(--canvas);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
 }
 
-/* Custom crisp scrollbars for enterprise telemetry lists */
+/* 1. Sub-Zero Glacio-Morphic Neomorphic Extrusions & Frost Glass Panels */
+.glacio-deck {
+  background: linear-gradient(145deg, rgba(14, 22, 38, 0.82) 0%, rgba(8, 13, 24, 0.90) 100%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 10px 10px 30px #020408, -8px -8px 24px #121a2d, inset 0 1px 1px rgba(255, 255, 255, 0.12);
+}
+
+.glacio-card {
+  background: linear-gradient(135deg, rgba(16, 26, 44, 0.75) 0%, rgba(9, 15, 27, 0.85) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(56, 189, 248, 0.12);
+  box-shadow: 6px 6px 18px #020408, -4px -4px 14px #10182a, inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.glacio-inset {
+  background: #04070E;
+  box-shadow: inset 4px 4px 10px #020306, inset -4px -4px 10px #0c1322;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.glacio-button {
+  background: linear-gradient(135deg, rgba(18, 30, 52, 0.8) 0%, rgba(10, 18, 32, 0.9) 100%);
+  box-shadow: 4px 4px 12px #020408, -3px -3px 10px #111b2e, inset 0 1px 1px rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glacio-button:hover {
+  border-color: #00F0FF;
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.3), 4px 4px 12px #020408, -3px -3px 10px #111b2e;
+}
+
+.glacio-button:active {
+  box-shadow: inset 3px 3px 8px #020408, inset -3px -3px 8px #0c1322;
+  transform: translateY(1px);
+}
+
+.glacio-button-primary {
+  background: linear-gradient(135deg, #00F0FF 0%, #0099FF 100%);
+  color: #020617;
+  font-weight: 700;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.4), 4px 4px 12px #020408;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glacio-button-primary:hover {
+  box-shadow: 0 0 30px rgba(0, 240, 255, 0.65), 4px 4px 14px #020408;
+  transform: translateY(-1px);
+}
+
+.glacio-button-primary:active {
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
+  transform: translateY(1px);
+}
+
+/* Tabular numbers for non-jittering telemetry readouts */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom crisp dark scrollbars for enterprise telemetry lists */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #F1F5F9;
+  background: #04070E;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: #141F34;
   border-radius: 9999px;
+  border: 1px solid rgba(56, 189, 248, 0.1);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: #00F0FF;
 }
 
-/* Animation utilities for pulse radars and vector tracks */
+/* Radar pulse & wake wave keyframes */
 @keyframes ping-slow {
   0% {
     transform: scale(0.95);
@@ -57,11 +131,45 @@ body {
 
 @keyframes dash {
   to {
-    stroke-dashoffset: -40;
+    stroke-dashoffset: -32;
   }
 }
 
 .animate-route-flow {
   stroke-dasharray: 8, 4;
-  animation: dash 2s linear infinite;
+  animation: dash 1.8s linear infinite;
+}
+
+@keyframes sweep-radar {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-radar-sweep {
+  animation: sweep-radar 4s linear infinite;
+  transform-origin: center center;
+}
+
+@keyframes wake-pulse {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}
+
+.animate-wake {
+  animation: wake-pulse 2s ease-out infinite;
+}
+
+/* Range input styling for Pareto and Temporal Scrubbers */
+input[type="range"] {
+  accent-color: #00F0FF;
 }

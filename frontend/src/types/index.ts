@@ -89,6 +89,7 @@ export interface IcebergFeature {
     vel_angle_deg: number;
     status: string;
     source: string;
+    risk_score?: number;
   };
 }
 

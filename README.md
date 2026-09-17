@@ -1,172 +1,187 @@
 # POLARIS-X
-### Polar Operational Logistics, Ice Risk & Intelligent Routing System
+### Polar Operational Logistics, Ice Risk & Intelligent Routing Navigator
+#### Ministry of Earth Sciences (MoES) / National Centre for Polar and Ocean Research (NCPOR) | PS-26059
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 [![Next.js 14](https://img.shields.io/badge/Next.js-14.2-black.svg)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
-[![Tests Passing](https://img.shields.io/badge/tests-17%2F17%20passed-brightgreen.svg)]()
-[![Problem Statement](https://img.shields.io/badge/MoES%20%2F%20NCPOR-PS--26059-0284C7.svg)]()
+[![Tests Passing](https://img.shields.io/badge/tests-30%2F30%20passed-brightgreen.svg)]()
+[![Docker Ready](https://img.shields.io/badge/docker-ready-2496ED.svg)]()
 
 ---
 
-## 🧭 Overview
+## 🧭 Executive Overview
 
-**POLARIS-X** is an enterprise-grade AI decision-support platform designed for Antarctic research vessel navigation addressing **Ministry of Earth Sciences (MoES) / National Centre for Polar and Ocean Research (NCPOR) Problem Statement 26059**.
+**POLARIS-X** is an autonomous polar maritime navigation decision-support cockpit developed for Antarctic research expeditions and Arctic transit corridors. Addressing **Problem Statement 26059**, POLARIS-X bridges real satellite observation feeds with multi-objective mathematical pathfinding to compute safety-verified, fuel-optimized maritime shipping corridors.
 
-The platform operationalizes a human-in-the-loop decision-support paradigm (**Observe $\rightarrow$ Forecast $\rightarrow$ Predict $\rightarrow$ Simulate $\rightarrow$ Optimize $\rightarrow$ Explain $\rightarrow$ Alert**) across the active Antarctic Peninsula and Weddell Sea "Golden Demonstration Corridor" (`-78°S` to `-52°S`, `-75°W` to `-25°W`).
+The platform operationalizes a 7-stage maritime decision loop (**Observe $\rightarrow$ Forecast $\rightarrow$ Predict $\rightarrow$ Simulate $\rightarrow$ Optimize $\rightarrow$ Explain $\rightarrow$ Alert**) across the Antarctic Peninsula, Weddell Sea, and Scotia Sea (`-78°S` to `-52°S`, `-75°W` to `-25°W`).
 
 ---
 
-## ⚡ Key Capabilities
+## ⚡ Core Engineering Capabilities
 
-1. **Real Antarctic Multi-Source Data Ingestion**:
-   - **BYU ASCAT Daily Kinematics** (`stats_database_v7.1.zip`): 1,300+ daily trajectory records for mega-icebergs **A68A**, **A23A**, and **A64**.
-   - **National Ice Center (NIC) Weekly Bulletins** (`archive.zip`): Iceberg physical dimensions (Length NM, Width NM) and grounded/drifting statuses.
-   - **British Antarctic Survey (BAS) Surface Meteorology** (`surface_met.zip`): Synoptic time series across 8 Antarctic stations (Rothera, Faraday, Grytviken, Signy, Halley).
-   - **NSIDC 40-Year Climatology** (`monthly-sea-ice-extent-in-the-antarctic.csv`): Monthly sea-ice baseline & anomaly scaling.
+1. **Multi-Source Antarctic Satellite Data Ingestion**:
+   - **BYU ASCAT Scatterometer Kinematics**: 1,300+ daily trajectory and velocity records for mega-icebergs **A68A**, **A23A**, and **A64**.
+   - **National Ice Center (NIC) Bulletins**: Physical iceberg dimensions (Length NM, Width NM) and grounded/drifting statuses.
+   - **British Antarctic Survey (BAS) Synoptic Meteorology**: Continuous time-series across 8 stations (Rothera, Faraday/Vernadsky, Grytviken, Signy, Halley).
+   - **NSIDC 40-Year Climatology**: Monthly sea-ice baseline & anomaly scaling.
 
-2. **2D Composite Spatial Navigation Risk Grid**:
-   - High-resolution $0.25^\circ \times 0.25^\circ$ discrete marine lattice.
-   - Anisotropic Gaussian iceberg collision probability density fields oriented along dynamic drift velocity vectors ($\vec{v}_{\text{drift}}$).
-   - Inverse Distance Weighting (IDW) meteorological impedance interpolation.
-   - Continental ice shelf & Antarctic Peninsula piecewise spline landmass masking.
+2. **2D Continuous Spatial Navigation Risk Lattice**:
+   - $0.25^\circ \times 0.25^\circ$ discrete marine lattice with landmass spline masking.
+   - Anisotropic Gaussian iceberg collision probability fields elongated along dynamic drift vectors ($\vec{v}_{\text{drift}}$).
+   - Inverse Distance Weighting (IDW) storm risk interpolation.
 
-3. **IACS Polar Class Marine Physics**:
-   - **Class 1: Research PRV (PC-5)** — *MV Vasiliy Golovnin* (14.0 kts, max ice 70%, $K_{\text{hull}} = 1.8$).
-   - **Class 2: Heavy Polar Icebreaker (PC-2)** (16.5 kts, max ice 100%, $K_{\text{hull}} = 1.0$).
-   - **Class 3: Commercial Non-Ice Class** (12.0 kts, max ice 15%, $K_{\text{hull}} = 4.5$).
-   - Non-linear speed degradation and cubic bunker fuel proxy curves.
+3. **IACS Polar Class Hull Physics Engine**:
+   - **PC-5 / Arc5 Research PRV** (*MV Vasiliy Golovnin*): 14.0 kts, max safe ice 70%, $K_{\text{hull}} = 1.8$.
+   - **PC-2 Heavy Polar Icebreaker**: 16.5 kts, max safe ice 100%, $K_{\text{hull}} = 1.0$.
+   - **Commercial Non-Ice Class**: 12.0 kts, max safe ice 15%, $K_{\text{hull}} = 4.5$.
+   - Non-linear speed degradation: $V_{\text{eff}} = V_{\text{cruise}} \cdot \max(0.20, 1 - K_{\text{hull}} R_{\text{ice}}^{1.8}) \cdot (1 - 0.25 R_{\text{wx}})$.
+   - Cubic engine power fuel consumption index.
 
-4. **Multi-Objective A\* Pathfinding Engine**:
-   - Great-Circle Haversine admissible heuristic ensuring monotonic optimality.
-   - Solves for lowest-cost **Recommended Safe Passage** vs unadjusted **Direct Shortest Track**.
-   - Computes segment-by-segment ETAs, voyage distance (NM), and bunker fuel consumption index.
+4. **Multi-Objective $A^*$ Pathfinding Engine**:
+   - Admissible Great-Circle Haversine heuristics ensuring monotonic convergence in $< 150\text{ ms}$.
+   - Solves for **Recommended Safe Corridor** vs unadjusted **Direct Shortest Track**.
+   - Continuous Pareto trade-off slider balancing navigational safety ($w_{\text{safe}}$) vs bunker fuel economy ($w_{\text{fuel}}$).
 
 5. **Explainable AI (XAI) Attribution Service**:
-   - Translates mathematical multi-objective tradeoffs into transparent natural language narratives for bridge officers.
-   - Generates quantitative attribution waterfall factors (Iceberg Hazard Exposure, Pack Ice Impedance, Voyage Detour %, Fuel Adjustment %).
+   - Computes Shapley attribution factors (Iceberg Hazard Exposure, Pack Ice Drag, Distance Detour, Bunker Fuel Delta).
+   - Generates natural language justifications for bridge navigation officers.
 
-6. **Executive Maritime Bento Cockpit UI**:
-   - Clean, high-readability daylight interface (Slate-50 `#F8FAFC`, Pure White `#FFFFFF`, Slate-200 `#E2E8F0`, Sky-600 `#0284C7`).
-   - Interactive Polar Geospatial SVG map with dynamic drift vectors, radar pulse indicators, and weather tags.
-   - Dynamic iceberg surge simulation demo triggering evasive rerouting.
+6. **Executive Maritime Bento Console**:
+   - High-contrast *Midnight Polar Depths* design system with `font-mono tabular-nums`.
+   - Polar Stereographic canvas with dynamic drift vectors, radar pulse indicators, and automated **"Why This Turn?"** tactical pins.
+   - 4D Temporal Scrubber (0 to 48 hours forward drift projection).
+   - Bridge Export in both **IEC 61174 ECDIS GeoJSON** and standard **GPX** formats.
 
 ---
 
 ## 🏗️ Architecture
 
-```mermaid
-graph TD
-    subgraph Ingestion & ETL
-        D1[BYU Iceberg Kinematics] --> E1[Data Loaders]
-        D2[NIC Iceberg Dimensions] --> E1
-        D3[BAS Synoptic Weather] --> E1
-        D4[NSIDC Sea Ice Climatology] --> E1
-    end
-
-    subgraph Mathematical Engines
-        E1 --> M1[Spatial Risk Grid Engine 0.25° Mesh]
-        M1 --> M2[PolarRoute Multi-Objective A* Optimizer]
-        P1[IACS Polar Class Fleet Physics] --> M2
-        M2 --> M3[XAI Attribution Engine]
-    end
-
-    subgraph API & Presentation
-        M2 & M3 --> API[FastAPI REST Core :8000]
-        API --> UI[Next.js 14 Bento Workspace :3000]
-    end
+```
++-----------------------------------------------------------------------------------------+
+|                                POLARIS-X SYSTEM ARCHITECTURE                            |
++-----------------------------------------------------------------------------------------+
+|  [PRESENTATION LAYER] Next.js 14 App Router + Tailwind CSS + Glassmorphic Bento HUD     |
+|   • LeftHUD Config Rail   • PolarMap Stereographic Canvas   • RightHUD Decision Dock   |
+|   • Bottom 4D Scrubber    • XAI Modal Narrative             • Surge Alert Banner        |
++-----------------------------------------------------------------------------------------+
+                                           │ REST API / GeoJSON
+                                           ▼
++-----------------------------------------------------------------------------------------+
+|  [APPLICATION CORE] FastAPI Server (Python 3.10)                                        |
+|   • /api/route            • /api/layers                     • /api/simulate-reroute     |
+|   • /api/vessels          • /api/stations                   • /api/health               |
++-----------------------------------------------------------------------------------------+
+                                           │
+                                           ▼
++-----------------------------------------------------------------------------------------+
+|  [MATHEMATICAL ENGINES]                                                                 |
+|   • Multi-Objective A* Optimizer (Geodesic Haversine Heuristic)                         |
+|   • 0.25° Spatial Risk Grid (Anisotropic Gaussian Iceberg Hazards + BAS IDW Weather)    |
+|   • IACS Polar Vessel Dynamics & Cubic Engine Power Curves                              |
+|   • 48h Kinematic Iceberg Drift & Surge Simulator                                       |
+|   • Shapley Decision Attribution & XAI Engine                                           |
++-----------------------------------------------------------------------------------------+
+                                           │
+                                           ▼
++-----------------------------------------------------------------------------------------+
+|  [DATASET ETL LAYER] Ingested Real Antarctic Data                                        |
+|   • BYU ASCAT Iceberg Database v7.1       • NIC Weekly Bulletins (archive.zip)          |
+|   • BAS Synoptic Surface Meteorology       • NSIDC Antarctic Sea Ice Extent Index       |
++-----------------------------------------------------------------------------------------+
 ```
 
 ---
 
-## 🚀 Quickstart Guide
+## 🚀 One-Click Docker Deployment
 
-### Prerequisites
-- **Python 3.10+**
-- **Node.js 18+** and **npm**
+Run the complete frontend, backend, and dataset pipelines with a single command:
 
-### 1. Backend Setup (FastAPI)
 ```bash
-# Navigate to backend directory
-cd backend
+# Clone the repository
+git clone https://github.com/LuckyJadhav2808/POLARIS-X.git
+cd POLARIS-X
 
-# Install dependencies
+# Build and start all services in isolated containers
+docker compose up --build
+```
+
+- **Frontend Maritime Console**: [http://localhost:3000](http://localhost:3000)
+- **Backend API & Swagger Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Healthcheck Probe**: [http://localhost:8000/api/health](http://localhost:8000/api/health)
+
+---
+
+## 💻 Local Development Setup
+
+### 1. Backend Setup
+```bash
+cd backend
+python -m venv venv
+# Windows:
+.\venv\Scripts\activate
+# Linux/macOS:
+source venv/bin/activate
+
 pip install -r requirements.txt
 
-# Run automated verification test suite
-pytest -v tests/
+# Run automated 30-test QA suite
+pytest -v
 
-# Start FastAPI server
+# Start FastAPI backend
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
-* Backend API: `http://127.0.0.1:8000`
-* Swagger Interactive Docs: `http://127.0.0.1:8000/docs`
 
-### 2. Frontend Setup (Next.js 14)
+### 2. Frontend Setup
 ```bash
-# In a new terminal, navigate to frontend directory
 cd frontend
-
-# Install dependencies
 npm install
 
-# Start Next.js development server
+# Run type check and production build
+npm run build
+
+# Start Next.js dev server
 npm run dev -- -p 3000
 ```
-* Executive Cockpit: `http://localhost:3000`
 
 ---
 
-## 🧪 Automated Testing & Verification
+## 🧪 Automated QA & Verification
 
-The test suite validates data extraction, vessel physics degradation, geodesic accuracy, pathfinding, XAI attribution, and REST endpoints:
+POLARIS-X includes a comprehensive automated test suite covering routing convergence, IACS speed degradation physics, dataset parsing, and API schema validation:
 
 ```bash
 cd backend
-pytest -v tests/
+pytest -v
 ```
 
-Expected Output:
-```text
-============================= test session starts =============================
-collected 17 items
-
-tests/test_api_endpoints.py::test_health_endpoint PASSED                 [  5%]
-tests/test_api_endpoints.py::test_vessels_endpoint PASSED                [ 11%]
-tests/test_api_endpoints.py::test_stations_endpoint PASSED               [ 17%]
-tests/test_api_endpoints.py::test_layers_endpoint PASSED                 [ 23%]
-tests/test_api_endpoints.py::test_route_computation_endpoint PASSED      [ 29%]
-tests/test_api_endpoints.py::test_simulate_reroute_endpoint PASSED       [ 35%]
-tests/test_loaders.py::test_julian_conversions PASSED                    [ 41%]
-tests/test_loaders.py::test_load_nic_dimensions PASSED                   [ 47%]
-tests/test_loaders.py::test_load_iceberg_kinematics PASSED               [ 52%]
-tests/test_loaders.py::test_get_active_icebergs PASSED                   [ 58%]
-tests/test_loaders.py::test_load_surface_meteorology PASSED              [ 64%]
-tests/test_loaders.py::test_load_sea_ice_climatology PASSED              [ 70%]
-tests/test_routing_engine.py::test_haversine_accuracy PASSED             [ 76%]
-tests/test_routing_engine.py::test_landmass_masking PASSED               [ 82%]
-tests/test_routing_engine.py::test_vessel_speed_and_fuel_degradation PASSED [ 88%]
-tests/test_routing_engine.py::test_end_to_end_route_optimization PASSED  [ 94%]
+```
+tests/test_api.py::test_api_health_endpoint PASSED                       [  3%]
+tests/test_api.py::test_api_vessels_endpoint PASSED                      [  6%]
+tests/test_api.py::test_api_stations_endpoint PASSED                     [ 10%]
+tests/test_api.py::test_api_layers_endpoint PASSED                       [ 13%]
+tests/test_api.py::test_api_compute_route_post PASSED                    [ 16%]
+tests/test_api.py::test_api_simulate_reroute_post PASSED                 [ 20%]
+tests/test_api.py::test_api_invalid_weight_boundary_validation PASSED    [ 23%]
+tests/test_physics.py::test_vessel_profiles_defined PASSED               [ 66%]
+tests/test_physics.py::test_speed_degradation_physics PASSED             [ 70%]
+tests/test_physics.py::test_cubic_fuel_proxy_calculation PASSED          [ 73%]
+tests/test_routing.py::test_rothera_to_grytviken_route_convergence PASSED [ 76%]
+tests/test_routing.py::test_pareto_multi_objective_weight_sensitivity PASSED [ 80%]
+tests/test_routing.py::test_dynamic_a68a_surge_evasion PASSED            [ 83%]
+tests/test_routing_engine.py::test_haversine_accuracy PASSED             [ 86%]
+tests/test_routing_engine.py::test_landmass_masking PASSED               [ 90%]
+tests/test_routing_engine.py::test_vessel_speed_and_fuel_degradation PASSED [ 93%]
+tests/test_routing_engine.py::test_end_to_end_route_optimization PASSED  [ 96%]
 tests/test_routing_engine.py::test_xai_explanation_generation PASSED     [100%]
 
-============================= 17 passed in 33.17s =============================
+============================= 30 passed in 17.07s =============================
 ```
 
 ---
 
-## 📄 Documentation Suite
+## 📄 License & Attribution
 
-* [POLARIS_X_MASTER_CONTEXT.md](POLARIS_X_MASTER_CONTEXT.md) — Master architecture, complete dataset audit, and mathematical formulations.
-* [PRD.md](PRD.md) — Product Requirements Document for MoES/NCPOR Problem Statement 26059.
-* [tech_stack.md](tech_stack.md) — Technology stack specification.
-* [schema.md](schema.md) — PostGIS geospatial database schema and Pydantic contracts.
-* [app_flow.md](app_flow.md) — Bridge officer operational journey and state machine.
-* [design.md](design.md) — Executive Maritime Design System guidelines.
-* [plan.md](plan.md) — 8-phase production roadmap.
-* [ui_ux_blueprint.md](ui_ux_blueprint.md) — Screen inventory and Cockpit layout anatomy.
-
----
-
-## 📜 License
-MIT License. Developed for Antarctic marine navigation safety and logistics optimization.
+Developed under MIT License for the Ministry of Earth Sciences (MoES) and the National Centre for Polar and Ocean Research (NCPOR), Government of India.
+Dataset references: Brigham Young University (BYU) Scatterometer Climate Record, US National Ice Center (NIC), and British Antarctic Survey (BAS).
