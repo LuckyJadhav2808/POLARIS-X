@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
-import { TelemetryStrip } from "@/components/TelemetryStrip";
-import { RouteConfigRail } from "@/components/RouteConfigRail";
+import { LeftHUD } from "@/components/LeftHUD";
 import { PolarMap } from "@/components/PolarMap";
-import { ComparisonDock } from "@/components/ComparisonDock";
+import { RightHUD } from "@/components/RightHUD";
+import { BottomDrawer } from "@/components/BottomDrawer";
 import { XAIModal } from "@/components/XAIModal";
 import { SurgeSimulationBanner } from "@/components/SurgeSimulationBanner";
 
@@ -24,7 +24,7 @@ import {
 } from "@/types";
 
 export default function PolarisCockpit() {
-  // State: Reference Fleet & Stations
+  // Reference Fleet & Stations
   const [stations, setStations] = useState<{ name: string; lat: number; lon: number }[]>([
     { name: "Rothera Station", lat: -67.57, lon: -68.12 },
     { name: "Faraday / Vernadsky", lat: -65.25, lon: -64.27 },
@@ -48,7 +48,7 @@ export default function PolarisCockpit() {
     },
   ]);
 
-  // State: Routing Parameters
+  // Routing Configuration Parameters
   const [selectedStart, setSelectedStart] = useState<string>("Rothera Station");
   const [selectedDest, setSelectedDest] = useState<string>("Grytviken / South Georgia");
   const [selectedPolarClass, setSelectedPolarClass] = useState<string>("PC-5");
@@ -56,7 +56,7 @@ export default function PolarisCockpit() {
   const [fuelWeight, setFuelWeight] = useState<number>(0.3);
   const [simulationDate, setSimulationDate] = useState<string>("2021-03-15");
 
-  // State: Geospatial Layers
+  // Geospatial Overlays
   const [icebergs, setIcebergs] = useState<IcebergFeature[]>([]);
   const [weatherStations, setWeatherStations] = useState<WeatherStationFeature[]>([]);
   const [visibleLayers, setVisibleLayers] = useState({
@@ -66,17 +66,20 @@ export default function PolarisCockpit() {
     stations: true,
   });
 
-  // State: Active Route Calculation & XAI
+  // Active Route Calculation & XAI
   const [routeData, setRouteData] = useState<RouteResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isBackendHealthy, setIsBackendHealthy] = useState<boolean>(true);
   const [isXAIModalOpen, setIsXAIModalOpen] = useState<boolean>(false);
 
-  // State: Dynamic Surge Simulation
+  // Dynamic Surge Simulation
   const [isSurgeActive, setIsSurgeActive] = useState<boolean>(false);
   const [isSurgeBannerOpen, setIsSurgeBannerOpen] = useState<boolean>(false);
 
-  // Initial Load: Fetch static meta and operational layers
+  // 4D Temporal Drift Scrubber (0 to 48 hours)
+  const [scrubHours, setScrubHours] = useState<number>(0);
+
+  // Initial Load: Fetch stations, vessels, and layers
   useEffect(() => {
     async function initCockpit() {
       try {
@@ -128,12 +131,12 @@ export default function PolarisCockpit() {
     }
   };
 
-  // Run initial route optimization on mount
+  // Run initial route calculation when parameters change
   useEffect(() => {
     handleComputeRoute();
   }, [selectedStart, selectedDest, selectedPolarClass, simulationDate]);
 
-  // Toggle dynamic layer visibility
+  // Toggle layer filters
   const handleToggleLayer = (layer: "icebergs" | "weather" | "seaIce" | "stations") => {
     setVisibleLayers((prev) => ({ ...prev, [layer]: !prev[layer] }));
   };
@@ -141,7 +144,6 @@ export default function PolarisCockpit() {
   // Trigger A68A Dynamic Surge Scenario
   const handleTriggerSurgeDemo = async () => {
     if (isSurgeActive) {
-      // Toggle back to normal
       setIsSurgeActive(false);
       setIsSurgeBannerOpen(false);
       handleComputeRoute();
@@ -188,7 +190,7 @@ export default function PolarisCockpit() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col selection:bg-sky-100 selection:text-sky-900">
+    <div className="min-h-screen bg-[#060A13] text-slate-100 flex flex-col justify-between selection:bg-[#38BDF8]/30 selection:text-[#38BDF8]">
       {/* 1. Executive Maritime Header */}
       <Header
         activeCorridor="Antarctic Peninsula & Weddell Sea"
@@ -196,10 +198,12 @@ export default function PolarisCockpit() {
         onOpenXAI={() => setIsXAIModalOpen(true)}
         onTriggerSurgeDemo={handleTriggerSurgeDemo}
         isSurgeActive={isSurgeActive}
+        vesselName={routeData?.vessel_profile.name || "MV Vasiliy Golovnin"}
+        polarClass={selectedPolarClass}
       />
 
-      {/* 2. Main Bento Cockpit Workspace */}
-      <main className="flex-1 max-w-[1720px] w-full mx-auto px-4 lg:px-6 py-4">
+      {/* 2. Main 3-Column Bento Workspace */}
+      <main className="flex-1 max-w-[1780px] w-full mx-auto px-3 lg:px-5 py-3 flex flex-col gap-3">
         {/* Dynamic Surge Alert Banner */}
         <SurgeSimulationBanner
           isOpen={isSurgeBannerOpen}
@@ -207,18 +211,11 @@ export default function PolarisCockpit() {
           onApplyReroute={() => setIsSurgeBannerOpen(false)}
         />
 
-        {/* 3. 4-KPI Horizontal Telemetry Strip */}
-        <TelemetryStrip
-          recommendedMetrics={routeData?.recommended_metrics || null}
-          directMetrics={routeData?.direct_metrics || null}
-          vesselName={routeData?.vessel_profile.name || "MV Vasiliy Golovnin"}
-        />
-
-        {/* 4. Core Bento Split Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-          {/* Left Control Rail (4 cols on xl, 3.5 cols on lg) */}
-          <div className="lg:col-span-4 xl:col-span-3 h-full">
-            <RouteConfigRail
+        {/* 3-Column Layout: Left HUD | Center Hero Polar Map | Right Decision HUD */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
+          {/* LEFT HUD: Configuration Rail (3 cols on xl, 3.5 cols on lg) */}
+          <div className="lg:col-span-4 xl:col-span-3">
+            <LeftHUD
               stations={stations}
               vessels={vessels}
               selectedStart={selectedStart}
@@ -240,9 +237,8 @@ export default function PolarisCockpit() {
             />
           </div>
 
-          {/* Right Geospatial Cockpit & Decision Dock (8 cols on xl, 8.5 cols on lg) */}
-          <div className="lg:col-span-8 xl:col-span-9 flex flex-col gap-4">
-            {/* Interactive Polar Canvas */}
+          {/* CENTER: Hero Interactive Polar Geospatial Canvas (6 cols on xl, 8.5 cols on lg) */}
+          <div className="lg:col-span-8 xl:col-span-6">
             <PolarMap
               recommendedRoute={routeData?.recommended_route || null}
               directRoute={routeData?.direct_route || null}
@@ -251,20 +247,34 @@ export default function PolarisCockpit() {
               stations={stations}
               visibleLayers={visibleLayers}
               isSurgeActive={isSurgeActive}
+              scrubHours={scrubHours}
             />
+          </div>
 
-            {/* Side-by-Side Tradeoff Comparison Dock */}
-            <ComparisonDock
+          {/* RIGHT HUD: Decision Intelligence, KPIs & XAI Waterfall (3 cols on xl, 12 cols on lg) */}
+          <div className="lg:col-span-12 xl:col-span-3">
+            <RightHUD
               recommendedMetrics={routeData?.recommended_metrics || null}
               directMetrics={routeData?.direct_metrics || null}
               vessel={routeData?.vessel_profile || null}
-              onOpenXAI={() => setIsXAIModalOpen(true)}
+              xaiData={routeData?.xai || null}
+              onOpenXAIModal={() => setIsXAIModalOpen(true)}
             />
           </div>
         </div>
+
+        {/* 3. Bottom Drawer: 4D Temporal Scrubber & Route Cross-Section Profile */}
+        <div className="w-full">
+          <BottomDrawer
+            scrubHours={scrubHours}
+            onScrubChange={setScrubHours}
+            totalDistanceNm={routeData?.recommended_metrics.distance_nm || 1180.5}
+            currentEtaHours={routeData?.recommended_metrics.eta_hours || 88.4}
+          />
+        </div>
       </main>
 
-      {/* 5. Explainable AI Decision Modal */}
+      {/* 4. Explainable AI Decision Modal */}
       <XAIModal
         isOpen={isXAIModalOpen}
         onClose={() => setIsXAIModalOpen(false)}
