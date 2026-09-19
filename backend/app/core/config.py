@@ -10,15 +10,15 @@ class Settings(BaseModel):
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api"
     
-    # Golden Demonstration Corridor Bounds
-    # Focus: Antarctic Peninsula, Weddell Sea, Scotia Sea / "Iceberg Alley"
-    MIN_LAT: float = -78.0
-    MAX_LAT: float = -52.0
-    MIN_LON: float = -75.0
-    MAX_LON: float = -25.0
+    # Pan-Antarctica 360° Operational Corridor Bounds (EPSG:3031 Spatial Extent)
+    # Covers all 10 Continental Sectors, Indian Ocean, Ross Sea, Weddell Sea & Scotia Arc
+    MIN_LAT: float = -85.0
+    MAX_LAT: float = -50.0
+    MIN_LON: float = -180.0
+    MAX_LON: float = 180.0
     
-    # 2D Grid Resolution (in decimal degrees ~15-20km per cell)
-    GRID_STEP_DEG: float = 0.25
+    # 2D Grid Resolution (0.5° ~ 25-30km lattice for ultra-fast, high-resolution 360° routing)
+    GRID_STEP_DEG: float = 0.50
     
     # Default Risk Weightings
     W_ICE: float = 0.45

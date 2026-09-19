@@ -181,10 +181,11 @@ class PolarRouteOptimizer:
             c_lat, c_lon = self.grid.indices_to_coord(current.r, current.c)
 
             for dr, dc, step_mult in neighbors:
-                nr, nc = current.r + dr, current.c + dc
+                nr = current.r + dr
+                nc = (current.c + dc) % self.grid.n_cols  # Circumpolar 360° longitudinal wrap-around
 
-                # Bounds checking
-                if not (0 <= nr < self.grid.n_rows and 0 <= nc < self.grid.n_cols):
+                # Latitude bounds checking
+                if not (0 <= nr < self.grid.n_rows):
                     continue
 
                 # Landmass pruning
@@ -197,7 +198,7 @@ class PolarRouteOptimizer:
                 # Prune cells exceeding vessel ice capability or hard iceberg barriers
                 if beta_risk > 0.0 and cell_risk >= settings.HARD_RISK_THRESHOLD:
                     continue
-                if beta_risk > 0.0 and cell_ice > max_safe_ice + 0.10:
+                if beta_risk > 0.0 and cell_ice > max_safe_ice + 0.15:
                     continue
 
                 n_lat, n_lon = self.grid.indices_to_coord(nr, nc)
@@ -216,8 +217,28 @@ class PolarRouteOptimizer:
                     neighbor_node = RouteNode(nr, nc, tentative_g, h_cost, parent=current)
                     heapq.heappush(open_set, neighbor_node)
 
-        # Fallback straight path if blocked
-        return [(start_r, start_c), (dest_r, dest_c)]
+        # Fallback: Relaxed geometric passage around landmasses
+        if beta_risk > 0.0:
+            return self._run_astar(
+                start_r, start_c, dest_r, dest_c,
+                total_risk, ice_risk,
+                beta_risk=0.0,
+                gamma=1.0,
+                beta_ice=0.0,
+                max_safe_ice=1.0
+            )
+
+        # Direct waypoint interpolation if fully blocked
+        steps = max(8, int(haversine_distance_nm(start_lat, start_lon, dest_lat, dest_lon) / 30.0))
+        interp_path = []
+        for s in range(steps + 1):
+            t = s / steps
+            ilat = start_lat + (dest_lat - start_lat) * t
+            dlon_wrapped = ((dest_lon - start_lon + 180.0) % 360.0) - 180.0
+            ilon = ((start_lon + dlon_wrapped * t + 180.0) % 360.0) - 180.0
+            ir, ic = self.grid.coord_to_indices(ilat, ilon)
+            interp_path.append((ir, ic))
+        return interp_path
 
     def _evaluate_path_metrics(
         self,

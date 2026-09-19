@@ -143,10 +143,10 @@ export default function PolarisCockpit() {
     }
   };
 
-  // Run initial route calculation when parameters change
+  // Run route calculation whenever routing parameters change
   useEffect(() => {
     handleComputeRoute();
-  }, [selectedStart, selectedDest, selectedPolarClass, simulationDate]);
+  }, [selectedStart, selectedDest, selectedPolarClass, simulationDate, safetyWeight, fuelWeight]);
 
   // Toggle layer filters
   const handleToggleLayer = (layer: "icebergs" | "weather" | "seaIce" | "stations") => {
@@ -174,11 +174,14 @@ export default function PolarisCockpit() {
         simulation_date: simulationDate,
       });
 
+      const startObj = stations.find((s) => s.name === selectedStart) || { name: selectedStart, lat: -67.57, lon: -68.12 };
+      const destObj = stations.find((s) => s.name === selectedDest) || { name: selectedDest, lat: -54.28, lon: -36.48 };
+
       setRouteData({
         status: "SURGE_ACTIVE",
         request: {
-          start: { name: selectedStart, lat: -67.57, lon: -68.12 },
-          destination: { name: selectedDest, lat: -54.28, lon: -36.48 },
+          start: { name: selectedStart, lat: startObj.lat, lon: startObj.lon },
+          destination: { name: selectedDest, lat: destObj.lat, lon: destObj.lon },
           polar_class: selectedPolarClass,
           safety_weight: safetyWeight,
           fuel_weight: fuelWeight,
