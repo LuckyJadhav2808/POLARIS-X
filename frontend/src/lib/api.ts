@@ -3,7 +3,8 @@
  */
 import { OperationalLayers, RouteResponse, SurgeRerouteResponse, VesselProfile } from "@/types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+const API_BASE_URL = RAW_API_URL.endsWith("/api") ? RAW_API_URL : `${RAW_API_URL.replace(/\/$/, "")}/api`;
 
 export async function fetchOperationalLayers(simulationDate: string = "2021-03-15"): Promise<OperationalLayers> {
   const res = await fetch(`${API_BASE_URL}/layers?simulation_date=${encodeURIComponent(simulationDate)}`, {
