@@ -19,6 +19,7 @@ import {
   Anchor,
   X,
   MapPin,
+  Mic,
 } from "lucide-react";
 import { Station, VesselProfile, ExpeditionPlan } from "@/types";
 
@@ -56,6 +57,7 @@ interface SidebarProps {
   onOpenXAI: () => void;
   onOpenExpedition?: () => void;
   onClearExpedition?: () => void;
+  onOpenCopilot?: () => void;
 }
 
 const POLAR_CLASSES = [
@@ -95,6 +97,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenXAI,
   onOpenExpedition,
   onClearExpedition,
+  onOpenCopilot,
 }) => {
   const [internalCollapsed, setInternalCollapsed] = useState<boolean>(false);
   const isCollapsed = controlledIsCollapsed !== undefined ? controlledIsCollapsed : internalCollapsed;
@@ -200,6 +203,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {activeExpeditionPlan && (
                       <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#00FFA3] border border-black shadow-[0_0_8px_#00FFA3]" />
                     )}
+                  </button>
+                )}
+
+                {onOpenCopilot && (
+                  <button
+                    onClick={onOpenCopilot}
+                    className="w-10 h-10 rounded-2xl glacio-button flex items-center justify-center cursor-pointer text-cyan-300 hover:text-white border-cyan-400/40 bg-cyan-950/60 shadow-[0_0_12px_rgba(6,182,212,0.3)] animate-pulse"
+                    title="Activate Bridge Officer AI (Polaris Copilot)"
+                  >
+                    <Mic className="w-4 h-4" />
                   </button>
                 )}
               </div>
@@ -571,6 +584,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <span>Scientific Expedition (NCPOR)</span>
                 </button>
               ) : null}
+
+              {onOpenCopilot && (
+                <button
+                  onClick={onOpenCopilot}
+                  className="w-full py-1.5 rounded-xl font-mono text-[10.5px] font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all bg-gradient-to-r from-cyan-950/60 via-slate-900 to-blue-950/60 border border-cyan-500/40 text-cyan-300 hover:text-white hover:border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.25)]"
+                  title="Bridge Officer Voice AI (Polaris Copilot)"
+                >
+                  <Mic className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                  <span>Bridge Officer AI (Copilot)</span>
+                </button>
+              )}
             </div>
           </div>
         )}

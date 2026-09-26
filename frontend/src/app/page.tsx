@@ -9,6 +9,7 @@ import { BottomDrawer } from "@/components/BottomDrawer";
 import { XAIModal } from "@/components/XAIModal";
 import { SurgeSimulationBanner } from "@/components/SurgeSimulationBanner";
 import { ExpeditionPlannerModal } from "@/components/ExpeditionPlannerModal";
+import { PolarisCopilotHUD } from "@/components/PolarisCopilotHUD";
 
 import {
   fetchStations,
@@ -23,6 +24,7 @@ import {
   IcebergFeature,
   WeatherStationFeature,
   ExpeditionPlan,
+  CopilotAction,
 } from "@/types";
 
 export default function PolarisCockpit() {
@@ -88,6 +90,9 @@ export default function PolarisCockpit() {
   // Dynamic Surge Simulation
   const [isSurgeActive, setIsSurgeActive] = useState<boolean>(false);
   const [isSurgeBannerOpen, setIsSurgeBannerOpen] = useState<boolean>(false);
+
+  // Polaris Bridge Copilot AI State
+  const [isCopilotOpen, setIsCopilotOpen] = useState<boolean>(false);
 
   // Layout State
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
@@ -263,6 +268,49 @@ export default function PolarisCockpit() {
     URL.revokeObjectURL(url);
   };
 
+  // Polaris Copilot Action Dispatcher
+  const handleExecuteCopilotAction = (action: CopilotAction) => {
+    if (!action || !action.type) return;
+
+    switch (action.type) {
+      case "SWITCH_POLAR_CLASS":
+      case "SET_POLAR_CLASS": {
+        const rawClass = action.payload?.polar_class || "PC2";
+        const normalized = rawClass.replace("-", "").toUpperCase();
+        setSelectedPolarClass(normalized);
+        break;
+      }
+      case "COMPUTE_ROUTE":
+      case "TRIGGER_COMPUTE_ROUTE": {
+        handleComputeRoute();
+        break;
+      }
+      case "TRIGGER_SURGE":
+      case "TRIGGER_SURGE_DEMO": {
+        handleTriggerSurgeDemo();
+        break;
+      }
+      case "OPEN_EXPEDITION":
+      case "OPEN_EXPEDITION_PLANNER":
+      case "OPEN_EXPEDITION_MODAL": {
+        setIsExpeditionModalOpen(true);
+        break;
+      }
+      case "OPEN_TRADEOFFS":
+      case "OPEN_TRADEOFFS_HUD": {
+        setIsRightHUDOpen(true);
+        break;
+      }
+      case "OPEN_XAI":
+      case "OPEN_XAI_MODAL": {
+        setIsXAIModalOpen(true);
+        break;
+      }
+      default:
+        break;
+    }
+  };
+
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-[#060911] text-slate-100 selection:bg-[#00F0FF]/30 selection:text-[#00F0FF]">
       {/* 1. Framed Pan-Antarctic Polar Stereographic Deck (Framed between Header, BottomDrawer, and Sidebars) */}
@@ -321,6 +369,7 @@ export default function PolarisCockpit() {
         onOpenExpedition={() => setIsExpeditionModalOpen(true)}
         activeExpeditionPlan={activeExpeditionPlan}
         onClearExpedition={() => setActiveExpeditionPlan(null)}
+        onOpenCopilot={() => setIsCopilotOpen(true)}
       />
 
       {/* 3. Floating Top Telemetry Ribbon */}
@@ -336,6 +385,7 @@ export default function PolarisCockpit() {
         onOpenTradeoffs={() => setIsRightHUDOpen(true)}
         onOpenXAI={() => setIsXAIModalOpen(true)}
         onOpenExpedition={() => setIsExpeditionModalOpen(true)}
+        onOpenCopilot={() => setIsCopilotOpen(true)}
         onExportECDIS={handleExportECDIS}
         onExportGPX={handleExportGPX}
       />
@@ -395,6 +445,15 @@ export default function PolarisCockpit() {
           setActiveExpeditionPlan(plan);
           setIsExpeditionModalOpen(false);
         }}
+      />
+
+      {/* 9. Voice-Assisted Bridge Officer AI Copilot HUD */}
+      <PolarisCopilotHUD
+        isOpen={isCopilotOpen}
+        onClose={() => setIsCopilotOpen(false)}
+        activePolarClass={selectedPolarClass}
+        routeData={routeData}
+        onExecuteAction={handleExecuteCopilotAction}
       />
     </div>
   );

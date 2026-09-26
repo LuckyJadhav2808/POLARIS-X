@@ -354,4 +354,47 @@ export interface ExpeditionPreset {
   waypoints: MissionWaypoint[];
 }
 
+// ============================================================================
+// VOICE-ASSISTED BRIDGE OFFICER AI ("POLARIS COPILOT")
+// ============================================================================
 
+export interface CopilotAction {
+  type:
+    | "SWITCH_POLAR_CLASS"
+    | "COMPUTE_ROUTE"
+    | "TRIGGER_SURGE"
+    | "OPEN_EXPEDITION_PLANNER"
+    | "OPEN_TRADEOFFS"
+    | "OPEN_XAI"
+    | "NAVIGATE_WAYPOINT"
+    | "NONE"
+    | string;
+  payload: Record<string, any>;
+}
+
+export interface CopilotQueryRequest {
+  transcript: string;
+  active_polar_class?: string;
+  context?: Record<string, any>;
+}
+
+export interface CopilotResponse {
+  status: string;
+  recognized_query: string;
+  intent: string;
+  spoken_response: string;
+  display_markdown: string;
+  action?: CopilotAction | null;
+  audio_cue: "ACKNOWLEDGE" | "WARNING" | "COMPUTING" | "SUCCESS" | string;
+  timestamp: string;
+}
+
+export interface CopilotMessage {
+  id: string;
+  sender: "user" | "copilot";
+  text: string;
+  displayMarkdown?: string;
+  timestamp: string;
+  action?: CopilotAction | null;
+  audioCue?: string;
+}

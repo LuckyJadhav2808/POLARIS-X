@@ -23,6 +23,7 @@ from app.engines.expedition_planner import (
     ExpeditionPlanRequest
 )
 from app.services.xai import xai_service
+from app.services.copilot import copilot_service
 
 router = APIRouter()
 
@@ -415,4 +416,66 @@ def plan_expedition(req: ExpeditionPlanRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Expedition planning failed: {str(e)}"
         )
+
+
+# ============================================================================
+# VOICE-ASSISTED BRIDGE OFFICER AI ("POLARIS COPILOT")
+# ============================================================================
+
+class CopilotQueryRequest(BaseModel):
+    query: Optional[str] = None
+    transcript: Optional[str] = None
+    vessel_class: Optional[str] = None
+    active_polar_class: Optional[str] = None
+    start_station: Optional[str] = "Rothera Station"
+    dest_station: Optional[str] = "Grytviken / South Georgia"
+    route_metrics: Optional[Dict[str, Any]] = None
+    rio_profile: Optional[Dict[str, Any]] = None
+    bathymetry: Optional[Dict[str, Any]] = None
+    expedition_plan: Optional[Dict[str, Any]] = None
+    context: Optional[Dict[str, Any]] = None
+
+
+@router.post("/copilot/query", tags=["Bridge Officer AI"])
+def query_copilot(req: CopilotQueryRequest):
+    """
+    Translates tactical bridge voice queries into maritime operational responses,
+    spoken officer feedback, and direct cockpit command execution payloads.
+    """
+    user_query = req.query or req.transcript or ""
+    v_class = (
+        req.vessel_class 
+        or req.active_polar_class 
+        or (req.context.get("active_polar_class") if req.context else "PC-5") 
+        or "PC-5"
+    )
+
+    ctx = req.context or {}
+    b_profile = req.bathymetry or ({
+        "min_under_keel_clearance_m": ctx.get("min_ukc_meters"),
+        "is_safe": ctx.get("safe_margin_verified")
+    } if "min_ukc_meters" in ctx else None)
+    
+    r_profile = req.rio_profile or ({
+        "overall_status": ctx.get("rio_status"),
+        "min_rio": ctx.get("min_rio")
+    } if "rio_status" in ctx else None)
+    
+    r_metrics = req.route_metrics or ({
+        "distance_nm": ctx.get("total_distance_nm"),
+        "fuel_proxy_pct": ctx.get("total_fuel_tons"),
+        "eta_hours": ctx.get("estimated_transit_hours")
+    } if "total_distance_nm" in ctx else None)
+
+    return copilot_service.process_query(
+        query=user_query,
+        vessel_class=v_class,
+        start_station=req.start_station or "Rothera Station",
+        dest_station=req.dest_station or "Grytviken / South Georgia",
+        route_metrics=r_metrics,
+        rio_profile=r_profile,
+        bathymetry=b_profile,
+        expedition_plan=req.expedition_plan
+    )
+
 

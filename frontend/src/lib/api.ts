@@ -121,3 +121,17 @@ export async function planExpedition(
   return res.json();
 }
 
+export async function queryCopilot(
+  params: import("@/types").CopilotQueryRequest
+): Promise<import("@/types").CopilotResponse> {
+  const res = await fetch(`${API_BASE_URL}/copilot/query`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Polaris Copilot request failed: ${res.statusText}`);
+  }
+  return res.json();
+}

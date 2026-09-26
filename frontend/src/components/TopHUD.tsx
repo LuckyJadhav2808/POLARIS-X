@@ -13,6 +13,8 @@ import {
   CheckCircle2,
   ShieldCheck,
   Anchor,
+  Radio,
+  Mic,
 } from "lucide-react";
 
 interface TopHUDProps {
@@ -27,6 +29,7 @@ interface TopHUDProps {
   onOpenTradeoffs: () => void;
   onOpenXAI: () => void;
   onOpenExpedition?: () => void;
+  onOpenCopilot?: () => void;
   onExportECDIS: () => void;
   onExportGPX: () => void;
 }
@@ -43,6 +46,7 @@ export const TopHUD: React.FC<TopHUDProps> = ({
   onOpenTradeoffs,
   onOpenXAI,
   onOpenExpedition,
+  onOpenCopilot,
   onExportECDIS,
   onExportGPX,
 }) => {
@@ -193,6 +197,17 @@ export const TopHUD: React.FC<TopHUDProps> = ({
             >
               <Anchor className="w-3 h-3 text-amber-400" />
               <span className="hidden xs:inline">Expedition</span>
+            </button>
+          )}
+
+          {onOpenCopilot && (
+            <button
+              onClick={onOpenCopilot}
+              className="glacio-button px-2 py-1 rounded-xl text-[10.5px] font-mono font-semibold text-cyan-300 hover:text-white flex items-center gap-1 cursor-pointer border border-cyan-500/40 bg-cyan-500/10 shadow-[0_0_12px_rgba(6,182,212,0.3)] animate-pulse"
+              title="Activate Voice-Assisted Bridge Officer AI (Polaris Copilot)"
+            >
+              <Mic className="w-3 h-3 text-cyan-400" />
+              <span className="hidden xs:inline">Copilot</span>
             </button>
           )}
 
