@@ -39,11 +39,21 @@ def test_get_active_icebergs():
 
 def test_load_surface_meteorology():
     stations = dataset_loader.load_surface_meteorology()
-    assert len(stations) >= 4
+    assert len(stations) == 8
     assert "ROTHERA" in stations
     assert "GRYTVIKEN" in stations
+    assert "FARADAY" in stations
+    assert "SIGNY" in stations
+    assert "HALLEY" in stations
+    assert "DECEPTION" in stations
+    assert "ADELAIDE" in stations
+    assert "FOSSIL_BLUFF" in stations
     rothera_readings = stations["ROTHERA"]
     assert len(rothera_readings) > 1000
+    adelaide_readings = stations["ADELAIDE"]
+    assert len(adelaide_readings) > 100
+    fossil_readings = stations["FOSSIL_BLUFF"]
+    assert len(fossil_readings) > 100
 
 def test_load_sea_ice_climatology():
     means = dataset_loader.load_sea_ice_climatology()

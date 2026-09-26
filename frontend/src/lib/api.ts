@@ -74,3 +74,50 @@ export async function triggerSurgeSimulation(params: {
   }
   return res.json();
 }
+
+export async function fetchPolarisRioMatrix(): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/polaris/rio-matrix`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch POLARIS RIO matrix: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function evaluateCustomIceRegime(params: {
+  polar_class: string;
+  regime: Record<string, number>;
+}): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/polaris/evaluate-regime`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to evaluate custom ice regime: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchExpeditionPresets(): Promise<{ presets: import("@/types").ExpeditionPreset[] }> {
+  const res = await fetch(`${API_BASE_URL}/expedition/presets`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch expedition presets: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function planExpedition(
+  params: import("@/types").ExpeditionPlanRequest
+): Promise<import("@/types").ExpeditionPlan> {
+  const res = await fetch(`${API_BASE_URL}/expedition/plan`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Expedition planning failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+

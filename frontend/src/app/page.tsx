@@ -8,6 +8,7 @@ import { RightHUD } from "@/components/RightHUD";
 import { BottomDrawer } from "@/components/BottomDrawer";
 import { XAIModal } from "@/components/XAIModal";
 import { SurgeSimulationBanner } from "@/components/SurgeSimulationBanner";
+import { ExpeditionPlannerModal } from "@/components/ExpeditionPlannerModal";
 
 import {
   fetchStations,
@@ -21,6 +22,7 @@ import {
   VesselProfile,
   IcebergFeature,
   WeatherStationFeature,
+  ExpeditionPlan,
 } from "@/types";
 
 export default function PolarisCockpit() {
@@ -80,6 +82,8 @@ export default function PolarisCockpit() {
   const [isBackendHealthy, setIsBackendHealthy] = useState<boolean>(true);
   const [isRightHUDOpen, setIsRightHUDOpen] = useState<boolean>(false);
   const [isXAIModalOpen, setIsXAIModalOpen] = useState<boolean>(false);
+  const [isExpeditionModalOpen, setIsExpeditionModalOpen] = useState<boolean>(false);
+  const [activeExpeditionPlan, setActiveExpeditionPlan] = useState<ExpeditionPlan | null>(null);
 
   // Dynamic Surge Simulation
   const [isSurgeActive, setIsSurgeActive] = useState<boolean>(false);
@@ -270,10 +274,15 @@ export default function PolarisCockpit() {
         <PolarMap
           recommendedRoute={routeData?.recommended_route || null}
           directRoute={routeData?.direct_route || null}
+          expeditionPlan={activeExpeditionPlan}
+          onClearExpedition={() => setActiveExpeditionPlan(null)}
+          onOpenExpedition={() => setIsExpeditionModalOpen(true)}
           icebergs={icebergs}
           weatherStations={weatherStations}
           stations={stations}
           visibleLayers={visibleLayers}
+          vesselProfile={routeData?.vessel_profile || null}
+          selectedPolarClass={selectedPolarClass}
           isSurgeActive={isSurgeActive}
           scrubHours={scrubHours}
           isSidebarCollapsed={isSidebarCollapsed}
@@ -309,18 +318,24 @@ export default function PolarisCockpit() {
         onTriggerSurgeDemo={handleTriggerSurgeDemo}
         onOpenTradeoffs={() => setIsRightHUDOpen(true)}
         onOpenXAI={() => setIsXAIModalOpen(true)}
+        onOpenExpedition={() => setIsExpeditionModalOpen(true)}
+        activeExpeditionPlan={activeExpeditionPlan}
+        onClearExpedition={() => setActiveExpeditionPlan(null)}
       />
 
       {/* 3. Floating Top Telemetry Ribbon */}
       <TopHUD
         recommendedMetrics={routeData?.recommended_metrics || null}
         directMetrics={routeData?.direct_metrics || null}
+        esgLedger={routeData?.esg_ledger || null}
+        rioProfile={routeData?.rio_profile || null}
         vesselProfile={routeData?.vessel_profile || null}
         selectedStart={selectedStart}
         selectedDest={selectedDest}
         isSidebarCollapsed={isSidebarCollapsed}
         onOpenTradeoffs={() => setIsRightHUDOpen(true)}
         onOpenXAI={() => setIsXAIModalOpen(true)}
+        onOpenExpedition={() => setIsExpeditionModalOpen(true)}
         onExportECDIS={handleExportECDIS}
         onExportGPX={handleExportGPX}
       />
@@ -336,12 +351,16 @@ export default function PolarisCockpit() {
         isSidebarCollapsed={isSidebarCollapsed}
       />
 
-      {/* 5. Slide-Over Analytical Inspector (Route A vs B Tradeoffs, Shapley XAI, ECDIS) */}
+      {/* 5. Slide-Over Analytical Inspector (Route A vs B Tradeoffs, Shapley XAI, ECDIS, IMO POLARIS) */}
       <RightHUD
         isOpen={isRightHUDOpen}
         onClose={() => setIsRightHUDOpen(false)}
         recommendedMetrics={routeData?.recommended_metrics || null}
         directMetrics={routeData?.direct_metrics || null}
+        esgLedger={routeData?.esg_ledger || null}
+        bathymetry={routeData?.bathymetry || null}
+        rioProfile={routeData?.rio_profile || null}
+        directRioProfile={routeData?.direct_rio_profile || null}
         vesselProfile={routeData?.vessel_profile || null}
         xaiData={routeData?.xai || null}
         recommendedRoute={routeData?.recommended_route || null}
@@ -363,6 +382,19 @@ export default function PolarisCockpit() {
         isOpen={isXAIModalOpen}
         onClose={() => setIsXAIModalOpen(false)}
         xaiData={routeData?.xai || null}
+      />
+
+      {/* 8. NCPOR Expedition Logistics Planner Modal */}
+      <ExpeditionPlannerModal
+        isOpen={isExpeditionModalOpen}
+        onClose={() => setIsExpeditionModalOpen(false)}
+        stations={stations}
+        vessels={vessels}
+        currentPolarClass={selectedPolarClass}
+        onApplyExpeditionToMap={(plan) => {
+          setActiveExpeditionPlan(plan);
+          setIsExpeditionModalOpen(false);
+        }}
       />
     </div>
   );

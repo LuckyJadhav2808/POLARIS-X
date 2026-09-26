@@ -10,8 +10,14 @@ from typing import Dict, List, Optional, Tuple, Any
 import numpy as np
 
 from app.core.config import settings
-from app.core.vessel_physics import get_vessel_spec, calculate_effective_speed, calculate_segment_fuel_proxy
+from app.core.vessel_physics import (
+    get_vessel_spec,
+    calculate_effective_speed,
+    calculate_segment_fuel_proxy,
+    calculate_voyage_esg_ledger
+)
 from app.engines.risk_grid import risk_grid_engine, haversine_distance_nm
+from app.engines.polaris_rio import evaluate_route_polaris_rio
 
 class RouteNode:
     def __init__(self, r: int, c: int, g_cost: float, h_cost: float, parent=None):
@@ -36,49 +42,48 @@ class PolarRouteOptimizer:
         dest_lat: float,
         dest_lon: float,
         polar_class: str = "PC-5",
-        safety_weight: float = 0.70,
-        fuel_weight: float = 0.30,
+        safety_weight: float = 0.5,
+        fuel_weight: float = 0.5,
         simulation_date_iso: str = "2021-03-15",
         surge_berg_id: Optional[str] = None,
         surge_speed_multiplier: float = 1.0,
         surge_heading_deg: Optional[float] = None
     ) -> Dict[str, Any]:
         """
-        Compute optimal safe corridor and direct shortest baseline.
-        Returns comprehensive route payload with GeoJSON linestrings, metrics, and XAI inputs.
+        Compute Pareto-optimal polar navigation corridor vs direct track.
+        Combines 2D spatial risk lattice, A* optimization, dynamic drift surge,
+        and Polar Class vessel physics.
         """
-        # 1. Retrieve vessel specifications
         vessel = get_vessel_spec(polar_class)
 
-        # 2. Compute dynamic risk grid
+        # 1. Compute dynamic spatial risk grid
         total_risk, ice_risk, berg_risk, wx_risk = self.grid.compute_risk_grid(
             simulation_date_iso=simulation_date_iso,
             surge_berg_id=surge_berg_id,
             surge_speed_multiplier=surge_speed_multiplier,
-            surge_heading_deg=surge_heading_deg
+            surge_heading_deg=surge_heading_deg,
+            vessel_draft_m=vessel.draft_m
         )
 
-        # 3. Discretize start and destination coordinates
         start_r, start_c = self.grid.coord_to_indices(start_lat, start_lon)
         dest_r, dest_c = self.grid.coord_to_indices(dest_lat, dest_lon)
 
-        # Ensure start and destination are marked navigable
-        self.grid.navigable_mask[start_r, start_c] = True
-        self.grid.navigable_mask[dest_r, dest_c] = True
-        total_risk[start_r, start_c] = min(0.30, float(total_risk[start_r, start_c]))
-        total_risk[dest_r, dest_c] = min(0.30, float(total_risk[dest_r, dest_c]))
+        # 2. Run Pareto-tuned A* for Recommended Safe Corridor
+        # Normalization: safety_weight increases beta_risk; fuel_weight decreases it toward geodesic
+        beta_risk = settings.RISK_PENALTY_MULTIPLIER * (safety_weight / max(fuel_weight, 0.05))
+        gamma = settings.RISK_AVERSION_EXPONENT
+        beta_ice = settings.ICE_IMPEDANCE_MULTIPLIER
 
-        # 4. Run A* for Recommended Safe Route (Risk-Weighted)
         rec_path_indices = self._run_astar(
             start_r, start_c, dest_r, dest_c,
             total_risk, ice_risk,
-            beta_risk=settings.RISK_PENALTY_MULTIPLIER * (safety_weight / 0.70),
-            gamma=settings.RISK_AVERSION_EXPONENT,
-            beta_ice=settings.ICE_IMPEDANCE_MULTIPLIER,
+            beta_risk=beta_risk,
+            gamma=gamma,
+            beta_ice=beta_ice,
             max_safe_ice=vessel.max_safe_ice_conc
         )
 
-        # 5. Run A* for Direct Shortest Track (Geometric Distance Only, zero risk penalty)
+        # 3. Run unconstrained Direct Baseline (Zero risk avoidance)
         direct_path_indices = self._run_astar(
             start_r, start_c, dest_r, dest_c,
             total_risk, ice_risk,
@@ -88,7 +93,7 @@ class PolarRouteOptimizer:
             max_safe_ice=1.0
         )
 
-        # 6. Evaluate metrics for both paths
+        # 4. Evaluate operational metrics
         rec_metrics, rec_coords = self._evaluate_path_metrics(
             rec_path_indices, total_risk, ice_risk, berg_risk, wx_risk, vessel
         )
@@ -96,7 +101,7 @@ class PolarRouteOptimizer:
             direct_path_indices, total_risk, ice_risk, berg_risk, wx_risk, vessel
         )
 
-        # 7. Construct GeoJSON features
+        # 5. Build GeoJSON LineStrings
         rec_geojson = {
             "type": "Feature",
             "geometry": {
@@ -123,11 +128,47 @@ class PolarRouteOptimizer:
             }
         }
 
+        # 6. Calculate Financial & Carbon ROI Ledger
+        esg_ledger = calculate_voyage_esg_ledger(
+            rec_duration_hours=rec_metrics["eta_hours"],
+            rec_fuel_proxy_pct=rec_metrics["fuel_proxy_pct"],
+            direct_duration_hours=direct_metrics["eta_hours"],
+            direct_fuel_proxy_pct=direct_metrics["fuel_proxy_pct"],
+            base_fuel_rate_tons_day=vessel.base_fuel_rate_tons_day
+        )
+
+        # 7. Evaluate Seafloor Bathymetric Depth & Under-Keel Clearance
+        rec_bathymetry = self.grid.get_route_bathymetry_profile(rec_coords, draft_m=vessel.draft_m)
+        direct_bathymetry = self.grid.get_route_bathymetry_profile(direct_coords, draft_m=vessel.draft_m)
+
+        # 8. Evaluate Official IMO POLARIS RIO Regulatory Compliance Profile (IMO MSC.1/Circ.1519)
+        def sample_ice_regime(lat: float, lon: float) -> Tuple[float, float]:
+            r, c = self.grid.coord_to_indices(lat, lon)
+            return float(ice_risk[r, c]), float(berg_risk[r, c])
+
+        rec_rio = evaluate_route_polaris_rio(
+            route_coords=rec_coords,
+            ice_grid_fn=sample_ice_regime,
+            polar_class=vessel.polar_class,
+            simulation_date_iso=simulation_date_iso
+        )
+        direct_rio = evaluate_route_polaris_rio(
+            route_coords=direct_coords,
+            ice_grid_fn=sample_ice_regime,
+            polar_class=vessel.polar_class,
+            simulation_date_iso=simulation_date_iso
+        )
+
         return {
             "recommended_route": rec_geojson,
             "recommended_metrics": rec_metrics,
             "direct_route": direct_geojson,
             "direct_metrics": direct_metrics,
+            "esg_ledger": esg_ledger,
+            "bathymetry": rec_bathymetry,
+            "direct_bathymetry": direct_bathymetry,
+            "rio_profile": rec_rio,
+            "direct_rio_profile": direct_rio,
             "vessel_profile": vessel.model_dump(),
             "simulation_date": simulation_date_iso
         }

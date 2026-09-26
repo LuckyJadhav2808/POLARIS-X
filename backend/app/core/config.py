@@ -48,6 +48,7 @@ class Settings(BaseModel):
         "Mawson Station (Australia)": (-67.6033, 62.8733),
         "Esperanza Base (Argentina)": (-63.3978, -56.9989),
         "Fossil Bluff": (-71.3167, -68.2833),
+        "Adelaide Island Station": (-67.8000, -68.9000),
     }
 
 settings = Settings()

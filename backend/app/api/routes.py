@@ -11,6 +11,17 @@ from app.core.config import settings
 from app.core.vessel_physics import VESSEL_PROFILES, get_vessel_spec
 from app.data.loaders import dataset_loader
 from app.engines.polar_route import polar_route_optimizer
+from app.engines.risk_grid import risk_grid_engine
+from app.engines.polaris_rio import (
+    IMO_POLARIS_RISK_VALUES,
+    IceRegimeTenths,
+    calculate_rio_for_regime
+)
+from app.engines.expedition_planner import (
+    expedition_engine,
+    EXPEDITION_PRESETS,
+    ExpeditionPlanRequest
+)
 from app.services.xai import xai_service
 
 router = APIRouter()
@@ -74,9 +85,60 @@ def get_stations():
         })
     return {"stations": station_list}
 
+@router.get("/layers/iceberg-catalog", tags=["Geospatial Data"])
+def get_iceberg_catalog():
+    """
+    Returns full metadata catalog for all 647 Antarctic icebergs tracked in BYU Consolidated Database v8.0.
+    Categorized by quadrant sector (A = Weddell/Bellingshausen, B = Ross Sea/Amundsen, C = Wilkes Land, D = Queen Maud Land).
+    """
+    catalog = dataset_loader.get_iceberg_catalog()
+    return {
+        "total_icebergs": len(catalog),
+        "database_version": "v8.0 (BYU Consolidated Multi-Sensor Radar)",
+        "sectors": {
+            "A": "Bellingshausen / Weddell Sea (0°W - 90°W)",
+            "B": "Amundsen / Ross Sea (90°W - 180°)",
+            "C": "Wilkes Land / East Antarctica (90°E - 180°)",
+            "D": "Queen Maud Land / Davis Sea (0°E - 90°E)",
+            "U": "Sub-Antarctic / Unnamed Series"
+        },
+        "catalog": catalog
+    }
+
+@router.get("/layers/bulletin-summary", tags=["Geospatial Data"])
+def get_bulletin_summary():
+    """Returns metadata summary of the 111 weekly National Ice Center (NIC) bulletins (2019-2022)."""
+    return dataset_loader.get_nic_bulletin_stats()
+
+@router.get("/layers/iceberg-history", tags=["Geospatial Data"])
+def get_iceberg_dimension_history(
+    iceberg_id: str = Query("A23A", description="Iceberg identifier (e.g. A23A, A68A, A64, B09B)")
+):
+    """
+    Returns 3-year chronological evolution history of dimensions, area, and grounded/drifting status
+    across all 111 weekly National Ice Center bulletins.
+    """
+    history_map = dataset_loader.load_nic_history(target_iceberg=iceberg_id)
+    records = history_map.get(iceberg_id.strip().upper(), [])
+    return {
+        "iceberg_id": iceberg_id.strip().upper(),
+        "total_weekly_records": len(records),
+        "history": records
+    }
+
+@router.get("/layers/bathymetry", tags=["Geospatial Data"])
+def get_bathymetric_features():
+    """
+    Returns Antarctic seafloor bathymetry features from IBCSO / GEBCO models:
+    deep ocean channels, continental shelf breaks, and hazardous shallow reefs/shoals.
+    """
+    return risk_grid_engine.get_bathymetry_geojson()
+
+
 @router.get("/layers", tags=["Geospatial Data"])
 def get_operational_layers(
-    simulation_date: str = Query("2021-03-15", description="ISO simulation date YYYY-MM-DD")
+    simulation_date: str = Query("2021-03-15", description="ISO simulation date YYYY-MM-DD"),
+    db_source: str = Query("v8.0", description="Iceberg database: 'v8.0' (Consolidated multi-sensor) or 'v7.1' (Legacy stats)")
 ):
     """
     Returns unified operational GeoJSON layers:
@@ -85,7 +147,7 @@ def get_operational_layers(
     - Stations / Waypoints
     """
     # 1. Icebergs
-    active_icebergs = dataset_loader.get_active_icebergs_for_date(simulation_date)
+    active_icebergs = dataset_loader.get_active_icebergs_for_date(simulation_date, db_source=db_source)
     berg_features = []
     for b in active_icebergs:
         berg_features.append({
@@ -219,9 +281,42 @@ def compute_route(req: RouteRequest):
         "recommended_metrics": result["recommended_metrics"],
         "direct_route": result["direct_route"],
         "direct_metrics": result["direct_metrics"],
+        "esg_ledger": result.get("esg_ledger"),
+        "bathymetry": result.get("bathymetry"),
+        "direct_bathymetry": result.get("direct_bathymetry"),
+        "rio_profile": result.get("rio_profile"),
+        "direct_rio_profile": result.get("direct_rio_profile"),
         "vessel_profile": result["vessel_profile"],
         "xai": xai_output
     }
+
+@router.get("/polaris/rio-matrix", tags=["IMO POLARIS Regulatory"])
+def get_polaris_risk_value_matrix():
+    """
+    Returns official IMO MSC.1/Circ.1519 Table 1 Risk Value (RV) matrix
+    for all 8 Polar Classes and all ice regime types.
+    """
+    return {
+        "standard": "IMO MSC.1/Circ.1519 (POLARIS System)",
+        "formula": "RIO = SUM( C_i * RV_i )",
+        "thresholds": {
+            "normal_operation": {"min_rio": 0, "status": "AUTHORIZED", "color": "#10B981"},
+            "elevated_risk": {"min_rio": -10, "max_rio": -1, "status": "SPEED_RESTRICTED_ESCORT", "color": "#F59E0B"},
+            "operation_prohibited": {"max_rio": -11, "status": "ILLEGAL_UNDER_SOLAS_XIV", "color": "#EF4444"}
+        },
+        "risk_value_table": IMO_POLARIS_RISK_VALUES
+    }
+
+class EvaluateRegimeRequest(BaseModel):
+    polar_class: str = "PC-5"
+    regime: IceRegimeTenths
+
+@router.post("/polaris/evaluate-regime", tags=["IMO POLARIS Regulatory"])
+def evaluate_custom_ice_regime(req: EvaluateRegimeRequest):
+    """
+    Evaluates exact IMO POLARIS RIO for a user-specified ice regime composition.
+    """
+    return calculate_rio_for_regime(req.regime, polar_class=req.polar_class)
 
 @router.post("/simulate-reroute", tags=["Dynamic Simulation"])
 def trigger_surge_reroute(req: SurgeRerouteRequest):
@@ -281,6 +376,43 @@ def trigger_surge_reroute(req: SurgeRerouteRequest):
         "baseline_metrics": baseline_result["recommended_metrics"],
         "rerouted_route": surge_result["recommended_route"],
         "rerouted_metrics": surge_result["recommended_metrics"],
+        "esg_ledger": surge_result.get("esg_ledger"),
+        "bathymetry": surge_result.get("bathymetry"),
+        "baseline_bathymetry": baseline_result.get("bathymetry"),
+        "rio_profile": surge_result.get("rio_profile"),
+        "baseline_rio_profile": baseline_result.get("rio_profile"),
         "vessel_profile": surge_result["vessel_profile"],
         "xai": xai_output
     }
+
+
+# ============================================================================
+# MULTI-WAYPOINT SCIENTIFIC MISSION SEQUENCING (EXPEDITION LOGISTICS PLANNER)
+# ============================================================================
+
+@router.get("/expedition/presets", tags=["Expedition Logistics"])
+def get_expedition_presets():
+    """Returns curated Antarctic multi-leg scientific mission expedition templates (e.g. 44th IAE)."""
+    return {
+        "presets": EXPEDITION_PRESETS
+    }
+
+
+@router.post("/expedition/plan", tags=["Expedition Logistics"])
+def plan_expedition(req: ExpeditionPlanRequest):
+    """
+    Computes sequential multi-leg navigational routes across all waypoints,
+    station dwell scheduling, cumulative fuel bunker depletion ledger (including hotel roadstead load),
+    and dynamic emergency abort contingency vectors to nearest safe havens.
+    """
+    try:
+        plan = expedition_engine.compute_expedition_plan(req)
+        return plan
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Expedition planning failed: {str(e)}"
+        )
+

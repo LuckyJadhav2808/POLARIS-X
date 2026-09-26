@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { RouteMetrics, VesselProfile } from "@/types";
+import { RouteMetrics, VesselProfile, EsgLedger, RIOProfile } from "@/types";
 import {
   Compass,
   Clock,
@@ -11,17 +11,22 @@ import {
   Sparkles,
   MapPin,
   CheckCircle2,
+  ShieldCheck,
+  Anchor,
 } from "lucide-react";
 
 interface TopHUDProps {
   recommendedMetrics: RouteMetrics | null;
   directMetrics: RouteMetrics | null;
+  esgLedger?: EsgLedger | null;
+  rioProfile?: RIOProfile | null;
   vesselProfile: VesselProfile | null;
   selectedStart: string;
   selectedDest: string;
   isSidebarCollapsed?: boolean;
   onOpenTradeoffs: () => void;
   onOpenXAI: () => void;
+  onOpenExpedition?: () => void;
   onExportECDIS: () => void;
   onExportGPX: () => void;
 }
@@ -29,24 +34,35 @@ interface TopHUDProps {
 export const TopHUD: React.FC<TopHUDProps> = ({
   recommendedMetrics,
   directMetrics,
+  esgLedger,
+  rioProfile,
   vesselProfile,
   selectedStart,
   selectedDest,
   isSidebarCollapsed = false,
   onOpenTradeoffs,
   onOpenXAI,
+  onOpenExpedition,
   onExportECDIS,
   onExportGPX,
 }) => {
   const distanceNm = recommendedMetrics?.distance_nm || 1420;
   const transitHours = recommendedMetrics?.eta_hours || 100.8;
   const transitDays = transitHours / 24;
-  const fuelPct = recommendedMetrics?.fuel_proxy_pct || 48.5;
+  const fuelPct = esgLedger?.recommended_fuel_tons ?? (recommendedMetrics?.fuel_proxy_pct || 48.5);
   const baselineDist = directMetrics?.distance_nm || 1386;
   const detourNm = (distanceNm - baselineDist).toFixed(1);
-  const fuelDiffPercent = directMetrics
-    ? Math.round(((directMetrics.fuel_proxy_pct - fuelPct) / directMetrics.fuel_proxy_pct) * 100)
-    : 14;
+  const fuelDiffPercent = esgLedger?.efficiency_gain_pct ?? (
+    directMetrics
+      ? Math.round(((directMetrics.fuel_proxy_pct - fuelPct) / directMetrics.fuel_proxy_pct) * 100)
+      : 14
+  );
+
+  const minRio = rioProfile?.min_rio ?? 18;
+  const isRioProhibited = rioProfile?.overall_status === "PROHIBITED_VIOLATION";
+  const isRioElevated = rioProfile?.overall_status === "ELEVATED_RISK_AUTHORIZED";
+  const rioStatusColor = isRioProhibited ? "#EF4444" : isRioElevated ? "#F59E0B" : "#10B981";
+  const rioBadgeLabel = isRioProhibited ? "PROHIBITED" : isRioElevated ? "ELEVATED RISK" : "AUTHORIZED";
 
   return (
     <header
@@ -73,9 +89,17 @@ export const TopHUD: React.FC<TopHUDProps> = ({
                 OPTIMAL
               </span>
             </div>
-            <span className="text-[8.5px] text-slate-400 font-mono hidden 2xl:block truncate">
-              {vesselProfile?.name || "MV Vasiliy Golovnin"} · {vesselProfile?.polar_class || "PC2"}
-            </span>
+            <div className="flex items-center gap-1.5 mt-0.5 truncate text-[8.5px] font-mono">
+              <span className="font-extrabold text-[#00FFA3] px-1 py-0.2 rounded bg-emerald-500/15 border border-emerald-500/30 shrink-0">
+                {vesselProfile?.polar_class?.split("/")[0]?.trim() || "PC-1"}
+              </span>
+              <span className="text-slate-300 truncate max-w-[140px] sm:max-w-[200px]">
+                {vesselProfile?.name || "Polar Research Icebreaker"}
+              </span>
+              <span className="text-cyan-400 font-bold tabular-nums shrink-0 hidden sm:inline">
+                {vesselProfile?.cruising_speed_knots ?? 17.5} kn
+              </span>
+            </div>
           </div>
         </div>
 
@@ -113,6 +137,32 @@ export const TopHUD: React.FC<TopHUDProps> = ({
               </div>
             </div>
           </div>
+
+          {/* IMO POLARIS RIO Regulatory Badge */}
+          <div
+            onClick={onOpenTradeoffs}
+            className="glacio-card px-2 py-0.5 rounded-xl items-center gap-1.5 cursor-pointer hover:border-cyan-500/50 transition-all flex"
+            title="Inspect Official IMO POLARIS (MSC.1/Circ.1519) Regulatory Assessment"
+          >
+            <ShieldCheck className="w-3 h-3 shrink-0" style={{ color: rioStatusColor }} />
+            <div>
+              <div className="text-[7.5px] text-slate-400 font-bold leading-none">IMO POLARIS</div>
+              <div className="text-[10.5px] font-extrabold tabular-nums flex items-center gap-1">
+                <span style={{ color: rioStatusColor }}>
+                  RIO {minRio >= 0 ? `+${minRio}` : minRio}
+                </span>
+                <span
+                  className="text-[7.5px] px-1 py-0.2 rounded font-bold uppercase hidden lg:inline"
+                  style={{
+                    backgroundColor: isRioProhibited ? "rgba(239,68,68,0.2)" : isRioElevated ? "rgba(245,158,11,0.2)" : "rgba(16,185,129,0.2)",
+                    color: rioStatusColor
+                  }}
+                >
+                  {rioBadgeLabel}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* 3. Action Toolbar (Tradeoffs, XAI, Dual ECDIS Export - Always full and non-clipped) */}
@@ -134,6 +184,17 @@ export const TopHUD: React.FC<TopHUDProps> = ({
             <Sparkles className="w-3 h-3 text-[#00F0FF]" />
             <span>XAI</span>
           </button>
+
+          {onOpenExpedition && (
+            <button
+              onClick={onOpenExpedition}
+              className="glacio-button px-2 py-1 rounded-xl text-[10.5px] font-mono font-semibold text-amber-300 hover:text-white flex items-center gap-1 cursor-pointer border border-amber-500/30 bg-amber-500/10 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
+              title="Multi-Waypoint Scientific Mission Sequencing (Expedition Logistics Planner)"
+            >
+              <Anchor className="w-3 h-3 text-amber-400" />
+              <span className="hidden xs:inline">Expedition</span>
+            </button>
+          )}
 
           {/* ECDIS Export Pill */}
           <div className="flex items-center gap-0.5 glacio-inset p-0.5 rounded-xl">

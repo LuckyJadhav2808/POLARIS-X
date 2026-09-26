@@ -16,8 +16,11 @@ import {
   Activity,
   Sliders,
   Calendar,
+  Anchor,
+  X,
+  MapPin,
 } from "lucide-react";
-import { Station, VesselProfile } from "@/types";
+import { Station, VesselProfile, ExpeditionPlan } from "@/types";
 
 interface SidebarProps {
   stations: Station[];
@@ -38,6 +41,7 @@ interface SidebarProps {
   isBackendHealthy: boolean;
   isSurgeActive: boolean;
   isCollapsed?: boolean;
+  activeExpeditionPlan?: ExpeditionPlan | null;
   onToggleCollapse?: () => void;
   onSelectStart: (name: string) => void;
   onSelectDest: (name: string) => void;
@@ -50,6 +54,8 @@ interface SidebarProps {
   onTriggerSurgeDemo: () => void;
   onOpenTradeoffs: () => void;
   onOpenXAI: () => void;
+  onOpenExpedition?: () => void;
+  onClearExpedition?: () => void;
 }
 
 const POLAR_CLASSES = [
@@ -62,6 +68,7 @@ const POLAR_CLASSES = [
 
 export const Sidebar: React.FC<SidebarProps> = ({
   stations,
+  vessels = [],
   selectedStart,
   selectedDest,
   selectedPolarClass,
@@ -73,6 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isBackendHealthy,
   isSurgeActive,
   isCollapsed: controlledIsCollapsed,
+  activeExpeditionPlan = null,
   onToggleCollapse,
   onSelectStart,
   onSelectDest,
@@ -85,6 +93,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onTriggerSurgeDemo,
   onOpenTradeoffs,
   onOpenXAI,
+  onOpenExpedition,
+  onClearExpedition,
 }) => {
   const [internalCollapsed, setInternalCollapsed] = useState<boolean>(false);
   const isCollapsed = controlledIsCollapsed !== undefined ? controlledIsCollapsed : internalCollapsed;
@@ -172,6 +182,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <AlertTriangle className="w-4 h-4" />
                 </button>
+                {onOpenExpedition && (
+                  <button
+                    onClick={onOpenExpedition}
+                    className={`w-10 h-10 rounded-2xl glacio-button flex items-center justify-center cursor-pointer relative ${
+                      activeExpeditionPlan
+                        ? "text-cyan-300 border-cyan-400/60 bg-cyan-950/80 shadow-[0_0_15px_rgba(0,240,255,0.35)]"
+                        : "text-amber-400 hover:text-white border-amber-400/30 bg-amber-500/10 shadow-[0_0_12px_rgba(245,158,11,0.2)]"
+                    }`}
+                    title={
+                      activeExpeditionPlan
+                        ? `Active Expedition: ${activeExpeditionPlan.mission_name}`
+                        : "NCPOR Multi-Waypoint Scientific Mission Sequencing"
+                    }
+                  >
+                    <Anchor className={`w-4 h-4 ${activeExpeditionPlan ? "animate-pulse" : ""}`} />
+                    {activeExpeditionPlan && (
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#00FFA3] border border-black shadow-[0_0_8px_#00FFA3]" />
+                    )}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -302,6 +332,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     );
                   })}
                 </div>
+
+                {/* Active Vessel Specifications Badge */}
+                {(() => {
+                  const activeVessel = vessels.find((v) => {
+                    const normV = v.polar_class.toUpperCase().replace(/[-_/ ]/g, "");
+                    const normS = selectedPolarClass.toUpperCase().replace(/[-_/ ]/g, "");
+                    return normV.includes(normS) || normS.includes(normV);
+                  }) || vessels[0];
+
+                  return (
+                    <div className="glacio-inset rounded-xl p-1.5 space-y-1 text-[9px] font-mono">
+                      <div className="flex items-center justify-between">
+                        <span className="font-extrabold text-[#00FFA3] truncate max-w-[160px]" title={activeVessel?.name}>
+                          {activeVessel?.name || `${selectedPolarClass} Vessel`}
+                        </span>
+                        <span className="text-cyan-400 font-bold tabular-nums shrink-0">
+                          {activeVessel?.cruising_speed_knots ?? 14.2} kn
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1 text-[8px] text-slate-400 pt-0.5 border-t border-white/[0.04]">
+                        <div>
+                          <span>Ice Cap: </span>
+                          <span className="text-slate-200 font-bold">{Math.round((activeVessel?.max_safe_ice_conc ?? 0.7) * 100)}%</span>
+                        </div>
+                        <div>
+                          <span>Hull Drag: </span>
+                          <span className="text-slate-200 font-bold">{activeVessel?.hull_resistance_coeff ?? 1.8}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Multi-Objective Weighting Slider */}
@@ -425,6 +487,90 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <AlertTriangle className="w-2.5 h-2.5 text-[#FFB800]" />
                 <span>{isSurgeActive ? "Surge Active" : "Emergency Surge Demo"}</span>
               </button>
+
+              {/* Active Expedition Mission Card OR Launch Button */}
+              {activeExpeditionPlan ? (
+                <div className="p-2.5 rounded-2xl bg-gradient-to-b from-[#09152C] via-[#071124] to-[#040916] border border-cyan-400/40 shadow-[0_0_25px_rgba(0,240,255,0.18)] space-y-2 text-xs font-mono animate-in fade-in">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5">
+                      <div className="w-5 h-5 rounded-lg bg-cyan-500/20 border border-cyan-400/50 flex items-center justify-center text-cyan-300">
+                        <Anchor className="w-3 h-3 animate-pulse" />
+                      </div>
+                      <span className="text-[9px] font-extrabold uppercase tracking-widest text-cyan-400">
+                        Active Expedition
+                      </span>
+                    </div>
+
+                    {onClearExpedition && (
+                      <button
+                        onClick={onClearExpedition}
+                        className="p-1 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-white/[0.06] transition-all cursor-pointer"
+                        title="Exit Expedition Track (Return to Single Route)"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div
+                    className="font-bold text-white text-[11px] leading-snug line-clamp-2"
+                    title={activeExpeditionPlan.mission_name}
+                  >
+                    {activeExpeditionPlan.mission_name}
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1 text-[9px] text-slate-300 pt-1 border-t border-white/[0.06]">
+                    <div className="p-1 rounded-lg bg-black/30 border border-white/[0.04]">
+                      <span className="text-slate-400 block text-[7.5px]">LEGS</span>
+                      <span className="font-bold text-white">{activeExpeditionPlan.total_legs} Legs</span>
+                    </div>
+                    <div className="p-1 rounded-lg bg-black/30 border border-white/[0.04]">
+                      <span className="text-slate-400 block text-[7.5px]">DISTANCE</span>
+                      <span className="font-bold text-cyan-300">{activeExpeditionPlan.summary.total_distance_nm} NM</span>
+                    </div>
+                    <div className="p-1 rounded-lg bg-black/30 border border-white/[0.04]">
+                      <span className="text-slate-400 block text-[7.5px]">DURATION</span>
+                      <span className="font-bold text-amber-300">{activeExpeditionPlan.summary.total_mission_days}d</span>
+                    </div>
+                  </div>
+
+                  {/* Bunker Depletion Meter */}
+                  <div className="space-y-1 pt-0.5">
+                    <div className="flex items-center justify-between text-[8.5px]">
+                      <span className="text-slate-400">Bunker Reserve</span>
+                      <span className="font-bold text-[#00FFA3]">
+                        {activeExpeditionPlan.summary.remaining_bunker_pct}% ({activeExpeditionPlan.summary.remaining_bunker_tons} T)
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-slate-800/80 overflow-hidden relative">
+                      <div
+                        style={{ width: `${activeExpeditionPlan.summary.remaining_bunker_pct}%` }}
+                        className="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 transition-all duration-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Action row */}
+                  {onOpenExpedition && (
+                    <button
+                      onClick={onOpenExpedition}
+                      className="w-full py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/50 text-cyan-300 text-[10.5px] font-bold flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(0,240,255,0.2)] transition-all cursor-pointer"
+                    >
+                      <Compass className="w-3 h-3 text-cyan-300" />
+                      <span>Inspect Mission Plan</span>
+                    </button>
+                  )}
+                </div>
+              ) : onOpenExpedition ? (
+                <button
+                  onClick={onOpenExpedition}
+                  className="w-full py-1.5 rounded-xl font-mono text-[10.5px] font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all bg-gradient-to-r from-amber-500/15 via-teal-500/15 to-cyan-500/15 border border-amber-400/40 text-amber-300 hover:text-white hover:border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                  title="NCPOR Multi-Waypoint Scientific Mission Sequencing"
+                >
+                  <Anchor className="w-3 h-3 text-amber-400" />
+                  <span>Scientific Expedition (NCPOR)</span>
+                </button>
+              ) : null}
             </div>
           </div>
         )}
