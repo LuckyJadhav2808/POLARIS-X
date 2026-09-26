@@ -29,6 +29,7 @@ import { queryCopilot } from "@/lib/api";
 import {
   playTacticalAudioCue,
   speakOfficerFeedback,
+  replayOfficerFeedback,
   stopSpeaking,
   isSpeechRecognitionSupported,
   getSpeechRecognitionConstructor,
@@ -74,6 +75,7 @@ export const PolarisCopilotHUD: React.FC<PolarisCopilotHUDProps> = ({
   const [isListening, setIsListening] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [isMinimized, setIsMinimized] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
@@ -154,11 +156,18 @@ export const PolarisCopilotHUD: React.FC<PolarisCopilotHUDProps> = ({
       // Voice read-out
       if (voiceEnabled && response.spoken_response) {
         setIsSpeaking(true);
+        setSpeakingMessageId(copilotMsg.id);
         speakOfficerFeedback(
           response.spoken_response,
           true,
-          () => setIsSpeaking(true),
-          () => setIsSpeaking(false)
+          () => {
+            setIsSpeaking(true);
+            setSpeakingMessageId(copilotMsg.id);
+          },
+          () => {
+            setIsSpeaking(false);
+            setSpeakingMessageId(null);
+          }
         );
       }
 
@@ -241,7 +250,41 @@ export const PolarisCopilotHUD: React.FC<PolarisCopilotHUDProps> = ({
   const handleStopSpeaking = () => {
     stopSpeaking();
     setIsSpeaking(false);
+    setSpeakingMessageId(null);
   };
+
+  const handlePlayMessageVoice = (msg: CopilotMessage) => {
+    const speechText = msg.text || msg.displayMarkdown || "";
+    if (!speechText) return;
+
+    // If currently speaking this exact message, toggle it off
+    if (isSpeaking && speakingMessageId === msg.id) {
+      handleStopSpeaking();
+      return;
+    }
+
+    handleStopSpeaking();
+    setVoiceEnabled(true);
+    setIsSpeaking(true);
+    setSpeakingMessageId(msg.id);
+    playTacticalAudioCue("ACKNOWLEDGE");
+
+    replayOfficerFeedback(
+      speechText,
+      () => {
+        setIsSpeaking(true);
+        setSpeakingMessageId(msg.id);
+      },
+      () => {
+        setIsSpeaking(false);
+        setSpeakingMessageId(null);
+      }
+    );
+  };
+
+  const latestCopilotMsg = [...messages]
+    .reverse()
+    .find((m) => m.sender === "copilot" && (m.text || m.displayMarkdown));
 
   if (!isOpen) return null;
 
@@ -282,17 +325,34 @@ export const PolarisCopilotHUD: React.FC<PolarisCopilotHUDProps> = ({
         <div className="flex items-center gap-1">
           <button
             onClick={() => {
-              if (voiceEnabled) handleStopSpeaking();
-              setVoiceEnabled(!voiceEnabled);
+              if (voiceEnabled) {
+                handleStopSpeaking();
+                setVoiceEnabled(false);
+              } else {
+                setVoiceEnabled(true);
+                const lastCopilot = [...messages].reverse().find((m) => m.sender === "copilot" && (m.text || m.displayMarkdown));
+                if (lastCopilot) {
+                  handlePlayMessageVoice(lastCopilot);
+                } else {
+                  playTacticalAudioCue("ACKNOWLEDGE");
+                }
+              }
             }}
-            title={voiceEnabled ? "Mute Copilot Voice" : "Enable Copilot Voice"}
-            className={`p-1.5 rounded-lg transition-colors ${
+            title={
+              voiceEnabled
+                ? "Mute Copilot Voice (Active - click to silence)"
+                : "Unmute & Speak (Muted - click to restore voice)"
+            }
+            className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
               voiceEnabled
                 ? "text-cyan-400 hover:bg-cyan-500/20"
-                : "text-slate-500 hover:bg-slate-800"
+                : "text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30"
             }`}
           >
             {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            {!voiceEnabled && (
+              <span className="text-[9.5px] font-mono font-bold tracking-wider uppercase pr-0.5">UNMUTE</span>
+            )}
           </button>
 
           <button
@@ -357,14 +417,27 @@ export const PolarisCopilotHUD: React.FC<PolarisCopilotHUDProps> = ({
               </span>
             </div>
 
-            {isSpeaking && (
-              <button
-                onClick={handleStopSpeaking}
-                className="text-[10px] px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30 transition-all font-mono"
-              >
-                HUSH
-              </button>
-            )}
+            <div className="flex items-center gap-1.5">
+              {isSpeaking ? (
+                <button
+                  onClick={handleStopSpeaking}
+                  className="text-[10px] px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30 transition-all font-mono flex items-center gap-1 cursor-pointer"
+                  title="Mute current officer speech"
+                >
+                  <VolumeX className="w-3 h-3 text-rose-400" />
+                  <span>MUTE / HUSH</span>
+                </button>
+              ) : latestCopilotMsg ? (
+                <button
+                  onClick={() => handlePlayMessageVoice(latestCopilotMsg)}
+                  className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30 hover:text-white transition-all font-mono flex items-center gap-1 cursor-pointer shadow-sm shadow-cyan-950"
+                  title="Replay latest officer voice feedback"
+                >
+                  <Volume2 className="w-3 h-3 text-cyan-400" />
+                  <span>SPEAK LAST</span>
+                </button>
+              ) : null}
+            </div>
           </div>
 
           {/* CHAT LOG STREAM */}
@@ -379,7 +452,7 @@ export const PolarisCopilotHUD: React.FC<PolarisCopilotHUDProps> = ({
                   msg.sender === "user" ? "items-end" : "items-start"
                 }`}
               >
-                <div className="flex items-center gap-1.5 mb-1 px-1">
+                <div className={`mb-1 px-1 ${msg.sender === "user" ? "flex items-center gap-1.5" : "w-full max-w-[90%] flex items-center justify-between"}`}>
                   {msg.sender === "user" ? (
                     <>
                       <span className="text-[10px] font-mono text-slate-400">{msg.timestamp}</span>
@@ -389,11 +462,35 @@ export const PolarisCopilotHUD: React.FC<PolarisCopilotHUDProps> = ({
                     </>
                   ) : (
                     <>
-                      <span className="text-[10px] font-bold tracking-wider text-cyan-300 uppercase flex items-center gap-1">
-                        <Ship className="w-3 h-3 text-cyan-400" />
-                        POLARIS COPILOT
-                      </span>
-                      <span className="text-[10px] font-mono text-slate-400">{msg.timestamp}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold tracking-wider text-cyan-300 uppercase flex items-center gap-1">
+                          <Ship className="w-3 h-3 text-cyan-400" />
+                          POLARIS COPILOT
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400">{msg.timestamp}</span>
+                      </div>
+
+                      <button
+                        onClick={() => handlePlayMessageVoice(msg)}
+                        title={isSpeaking && speakingMessageId === msg.id ? "Stop voice reading" : "Read message aloud"}
+                        className={`text-[9.5px] font-mono px-2 py-0.5 rounded-md flex items-center gap-1 transition-all cursor-pointer ${
+                          isSpeaking && speakingMessageId === msg.id
+                            ? "bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse"
+                            : "bg-slate-800/90 text-cyan-300 hover:bg-cyan-900/60 hover:text-white border border-cyan-800/40"
+                        }`}
+                      >
+                        {isSpeaking && speakingMessageId === msg.id ? (
+                          <>
+                            <VolumeX className="w-3 h-3 text-rose-400" />
+                            <span>Stop</span>
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-3 h-3 text-cyan-400" />
+                            <span>Speak</span>
+                          </>
+                        )}
+                      </button>
                     </>
                   )}
                 </div>

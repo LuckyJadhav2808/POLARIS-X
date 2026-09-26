@@ -124,6 +124,10 @@ export function speakOfficerFeedback(
   }
 
   try {
+    // Unblock speech engine in case previous speech was abruptly cancelled
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
     window.speechSynthesis.cancel();
 
     // Clean markdown formatting before voice synthesis
@@ -160,14 +164,33 @@ export function speakOfficerFeedback(
       if (onEnd) onEnd();
     };
 
-    window.speechSynthesis.speak(utterance);
+    // Slight timeout avoids Chrome garbage collection glitch on SpeechSynthesisUtterance
+    setTimeout(() => {
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+      window.speechSynthesis.speak(utterance);
+    }, 20);
   } catch {
     if (onEnd) onEnd();
   }
 }
 
+export function replayOfficerFeedback(
+  text: string,
+  onStart?: () => void,
+  onEnd?: () => void
+): void {
+  speakOfficerFeedback(text, true, onStart, onEnd);
+}
+
 export function stopSpeaking(): void {
   if (typeof window !== "undefined" && "speechSynthesis" in window) {
-    window.speechSynthesis.cancel();
+    try {
+      window.speechSynthesis.cancel();
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+    } catch {}
   }
 }
