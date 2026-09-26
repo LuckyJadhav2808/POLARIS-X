@@ -429,6 +429,7 @@ class CopilotQueryRequest(BaseModel):
     active_polar_class: Optional[str] = None
     start_station: Optional[str] = "Rothera Station"
     dest_station: Optional[str] = "Grytviken / South Georgia"
+    simulation_date: Optional[str] = "2021-03-15"
     route_metrics: Optional[Dict[str, Any]] = None
     rio_profile: Optional[Dict[str, Any]] = None
     bathymetry: Optional[Dict[str, Any]] = None
@@ -467,11 +468,16 @@ def query_copilot(req: CopilotQueryRequest):
         "eta_hours": ctx.get("estimated_transit_hours")
     } if "total_distance_nm" in ctx else None)
 
+    sim_date = req.simulation_date or (ctx.get("simulation_date") if ctx else None) or "2021-03-15"
+    start_stn = req.start_station or (ctx.get("start_station") if ctx else None) or "Rothera Station"
+    dest_stn = req.dest_station or (ctx.get("dest_station") if ctx else None) or "Grytviken / South Georgia"
+
     return copilot_service.process_query(
         query=user_query,
         vessel_class=v_class,
-        start_station=req.start_station or "Rothera Station",
-        dest_station=req.dest_station or "Grytviken / South Georgia",
+        start_station=start_stn,
+        dest_station=dest_stn,
+        simulation_date=sim_date,
         route_metrics=r_metrics,
         rio_profile=r_profile,
         bathymetry=b_profile,

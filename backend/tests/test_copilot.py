@@ -106,3 +106,86 @@ def test_copilot_api_endpoint():
     assert data["intent"] == "SWITCH_POLAR_CLASS"
     assert data["action"]["payload"]["polar_class"] == "PC-1"
     assert "PC-1" in data["spoken_response"]
+
+
+def test_copilot_destination_confirmation_query():
+    """Verify voyager inquiry confirming chosen destination."""
+    res = copilot_service.process_query(
+        "Can you check or confirm the destination that we have chosen?",
+        start_station="Rothera Station",
+        dest_station="Grytviken / South Georgia",
+        route_metrics={"distance_nm": 1365.0, "eta_hours": 88.0}
+    )
+    assert res["intent"] == "QUERY_DESTINATION"
+    assert "Grytviken / South Georgia" in res["spoken_response"]
+    assert "Rothera Station" in res["spoken_response"]
+    assert "1365 nautical miles" in res["spoken_response"]
+    assert res["audio_cue"] == "ACKNOWLEDGE"
+
+
+def test_copilot_weather_query():
+    """Verify synoptic weather, wind, and freezing spray advisory query."""
+    res = copilot_service.process_query("What is the weather and wind speed ahead?")
+    assert res["intent"] == "QUERY_WEATHER"
+    assert "synoptic" in res["spoken_response"].lower()
+    assert "freezing spray" in res["spoken_response"].lower()
+    assert res["audio_cue"] == "WARNING"
+
+
+def test_copilot_safe_haven_query():
+    """Verify emergency shelter and safe haven query."""
+    res = copilot_service.process_query("Where is the nearest emergency safe haven or anchorage?")
+    assert res["intent"] == "QUERY_SAFE_HAVEN"
+    assert "Deception Island" in res["spoken_response"]
+    assert "Potter Cove" in res["spoken_response"]
+
+
+def test_copilot_escort_query():
+    """Verify icebreaker escort requirement check."""
+    res = copilot_service.process_query(
+        "Do we legally require an icebreaker escort right now?",
+        vessel_class="PC-5"
+    )
+    assert res["intent"] == "QUERY_ESCORT"
+    assert "escort" in res["spoken_response"].lower()
+    assert "PC-5" in res["spoken_response"]
+
+
+def test_copilot_ice_type_query():
+    """Verify ice regime and besetting pressure query."""
+    res = copilot_service.process_query("Are we in first-year or multi-year pack ice?")
+    assert res["intent"] == "QUERY_ICE_TYPE"
+    assert "First-Year" in res["spoken_response"]
+
+
+def test_copilot_endurance_query():
+    """Verify vessel survival days under ice entrapment hotel load."""
+    res = copilot_service.process_query("How many days of hotel load survival fuel do we have if stuck in ice?")
+    assert res["intent"] == "QUERY_ENDURANCE"
+    assert "hotel load" in res["spoken_response"].lower()
+    assert "autonomous life-support" in res["spoken_response"].lower()
+    assert res["audio_cue"] == "SUCCESS"
+
+
+def test_copilot_project_info_query():
+    """Verify general project, NCPOR, and Problem Statement 26059 question."""
+    res = copilot_service.process_query("What is Problem Statement PS-26059 and POLARIS-X?")
+    assert res["intent"] == "QUERY_PROJECT_INFO"
+    assert "PS-26059" in res["display_text"]
+    assert "NCPOR" in res["spoken_response"]
+
+
+def test_copilot_date_query():
+    """Verify voyage start date / departure date inquiry."""
+    res = copilot_service.process_query(
+        "What is the date of starting our journey?",
+        simulation_date="2021-03-15",
+        start_station="Rothera Station",
+        dest_station="Grytviken / South Georgia"
+    )
+    assert res["intent"] == "QUERY_DATE"
+    assert "2021-03-15" in res["display_text"]
+    assert "March 2021" in res["spoken_response"]
+    assert res["audio_cue"] == "ACKNOWLEDGE"
+
+

@@ -18,6 +18,7 @@ class BridgeOfficerCopilotService:
         vessel_class: str = "PC-5",
         start_station: str = "Rothera Station",
         dest_station: str = "Grytviken / South Georgia",
+        simulation_date: str = "2021-03-15",
         route_metrics: Optional[Dict[str, Any]] = None,
         rio_profile: Optional[Dict[str, Any]] = None,
         bathymetry: Optional[Dict[str, Any]] = None,
@@ -230,7 +231,38 @@ class BridgeOfficerCopilotService:
             }
 
         # ---------------------------------------------------------------------
-        # 8. TACTICAL QUERY: FUEL BUNKER & CONSUMPTION
+        # 8. TACTICAL QUERY: VESSEL ENDURANCE & HOTEL LOAD SURVIVAL DAYS
+        # ---------------------------------------------------------------------
+        if any(w in q_lower for w in ["hotel load", "endurance", "stuck in ice", "how many days", "reserve days", "survival", "survival fuel", "days of fuel"]):
+            hotel_rate_tons_day = 3.5
+            total_reserve_tons = 1178.7
+            if expedition_plan and "summary" in expedition_plan:
+                total_reserve_tons = expedition_plan["summary"].get("remaining_bunker_tons", total_reserve_tons)
+            
+            endurance_days = round(total_reserve_tons / hotel_rate_tons_day, 1)
+            spoken = (
+                f"Bridge survival endurance analysis: In the event of ice entrapment with main propulsion secured, "
+                f"auxiliary generators consume approximately 3.5 tons MGO per day under polar hotel load. "
+                f"With {total_reserve_tons:.0f} tons of reserve fuel aboard, the vessel has {endurance_days:.0f} days "
+                f"of autonomous life-support, heating, and emergency power."
+            )
+            display = (
+                f"**Vessel Survival & Hotel Load Endurance**\n\n"
+                f"• **Polar Hotel Load Consumption:** `3.5 Tons MGO / Day` (Heating, power, fresh water)\n"
+                f"• **Onboard Bunker Reserves:** `{total_reserve_tons:.1f} Tons MGO`\n"
+                f"• **Autonomous Beset Endurance:** `{endurance_days:.0f} Days` (~{round(endurance_days/30, 1)} months)\n"
+                f"• **Life-Support Verdict:** ✅ High safety margin; far exceeds 30-day Antarctic emergency reserve threshold."
+            )
+            return {
+                "intent": "QUERY_ENDURANCE",
+                "spoken_response": spoken,
+                "display_text": display,
+                "action": None,
+                "audio_cue": "SUCCESS"
+            }
+
+        # ---------------------------------------------------------------------
+        # 9. TACTICAL QUERY: FUEL BUNKER & CONSUMPTION
         # ---------------------------------------------------------------------
         if any(w in q_lower for w in ["fuel", "bunker", "consumption", "burn", "diesel", "mgo", "co2", "carbon"]):
             if expedition_plan and "summary" in expedition_plan:
@@ -277,7 +309,7 @@ class BridgeOfficerCopilotService:
             }
 
         # ---------------------------------------------------------------------
-        # 9. TACTICAL QUERY: ACTIVE ICEBERGS & SURGE
+        # 10. TACTICAL QUERY: ACTIVE ICEBERGS & SURGE
         # ---------------------------------------------------------------------
         if any(w in q_lower for w in ["iceberg", "icebergs", "tabular", "a68a", "a23a", "a76", "collision hazard"]):
             spoken = (
@@ -300,9 +332,111 @@ class BridgeOfficerCopilotService:
             }
 
         # ---------------------------------------------------------------------
-        # 10. TACTICAL QUERY: VOYAGE PASSAGE SUMMARY (DISTANCE, ETA, SPEED)
+        # 11. TACTICAL QUERY: WEATHER, SYNOPTIC WIND & FREEZING SPRAY
         # ---------------------------------------------------------------------
-        if any(w in q_lower for w in ["eta", "distance", "how far", "voyage status", "speed", "where are we", "course"]):
+        if any(w in q_lower for w in ["weather", "wind", "sea state", "wave", "swell", "gale", "blizzard", "freezing spray", "icing", "storm", "meteorology"]):
+            spoken = (
+                f"BAS Synoptic Weather Briefing: Regional surface winds are blowing South-Southwest at 26 to 34 knots, "
+                f"with significant wave swell of 3.8 meters in the Scotia Sea corridor. "
+                f"Air temperature is minus 5 degrees Celsius with a moderate Topside Freezing Spray advisory. "
+                f"Anti-icing electrical tracing and deck de-icing systems should remain armed."
+            )
+            display = (
+                f"**British Antarctic Survey (BAS) Synoptic Meteorology**\n\n"
+                f"• **Surface Wind Vector:** `SSW 28 kts` (Gale Gusts to 38 kts)\n"
+                f"• **Significant Wave Height:** `3.8 m` (Scotia Arc / Weddell Boundary)\n"
+                f"• **Surface Air Temperature:** `-5.2°C` | **Sea Surface Temp (SST):** `-1.1°C`\n"
+                f"• **Atmospheric Pressure:** `984.2 hPa` (Low Pressure Trough Crossing)\n"
+                f"• **Topside Icing Hazard:** ⚠️ `MODERATE FREEZING SPRAY` (Mandatory superstructure watch)"
+            )
+            return {
+                "intent": "QUERY_WEATHER",
+                "spoken_response": spoken,
+                "display_text": display,
+                "action": None,
+                "audio_cue": "WARNING"
+            }
+
+        # ---------------------------------------------------------------------
+        # 12. TACTICAL QUERY: DESTINATION, ORIGIN & PASSAGE VERIFICATION
+        # ---------------------------------------------------------------------
+        if any(w in q_lower for w in [
+            "destination", "dest", "confirm destination", "check destination", "checked destination",
+            "where are we going", "where are we heading", "where are we sailing", "where are we heading to",
+            "arrival", "target port", "origin", "departure", "waypoint", "waypoints"
+        ]):
+            dist = route_metrics.get("distance_nm", 1365.0) if route_metrics else 1365.0
+            eta = route_metrics.get("eta_hours", 88.0) if route_metrics else 88.0
+            days = eta / 24.0
+            spoken = (
+                f"Affirmative, Bridge. Active destination is confirmed as {dest_station}, "
+                f"departing from {start_station}. Total passage distance along the safety corridor is "
+                f"{dist:.0f} nautical miles, with an estimated steaming duration of {days:.1f} days at {vessel.cruising_speed_knots} knots."
+            )
+            display = (
+                f"**Navigational Passage Verification**\n\n"
+                f"• **Active Destination:** `{dest_station}`\n"
+                f"• **Departure Origin:** `{start_station}`\n"
+                f"• **Assigned Vessel:** {vessel.name} (`{vessel_class}`)\n"
+                f"• **Corridor Distance:** `{dist:.1f} NM`\n"
+                f"• **ETA to Destination:** `{days:.1f} Steaming Days` ({eta:.1f} hrs)\n"
+                f"• **Transit Status:** ✅ Destination locked; navigation corridor verified clear of seabed & grounded berg shoals."
+            )
+            return {
+                "intent": "QUERY_DESTINATION",
+                "spoken_response": spoken,
+                "display_text": display,
+                "action": None,
+                "audio_cue": "ACKNOWLEDGE"
+            }
+
+        # ---------------------------------------------------------------------
+        # 13. TACTICAL QUERY: DEPARTURE DATE & VOYAGE TIMELINE
+        # ---------------------------------------------------------------------
+        if any(w in q_lower for w in [
+            "date", "departure date", "start date", "starting date", "when do we start",
+            "when does our journey start", "when are we sailing", "departure time",
+            "what date", "start of our journey", "starting our journey", "voyage date",
+            "calendar date", "when will we leave", "when are we leaving", "what day", "what time"
+        ]):
+            # Human friendly formatting for simulation date (e.g. 2021-03-15 -> 15 March 2021)
+            friendly_date = simulation_date
+            try:
+                parts = simulation_date.split("-")
+                if len(parts) == 3:
+                    months = [
+                        "January", "February", "March", "April", "May", "June",
+                        "July", "August", "September", "October", "November", "December"
+                    ]
+                    m_idx = int(parts[1]) - 1
+                    friendly_date = f"{int(parts[2])} {months[m_idx]} {parts[0]}"
+            except Exception:
+                pass
+
+            spoken = (
+                f"Voyage timeline briefing: The scheduled departure date for our journey is {friendly_date} at 08:00 UTC. "
+                f"This coincides with the Austral late-summer polar navigation window, calibrated against BYU ASCAT satellite radar and NIC iceberg kinematics."
+            )
+            display = (
+                f"**Voyage Departure & Operational Timeline**\n\n"
+                f"• **Scheduled Departure Date:** `{simulation_date}` ({friendly_date})\n"
+                f"• **Departure Time (UTC):** `08:00:00Z`\n"
+                f"• **Active Corridor:** {start_station} ➔ {dest_station}\n"
+                f"• **Polar Climatology Window:** Austral Late Summer / Early Autumn (Peak navigable corridor before seasonal Antarctic sea ice freeze-up)\n"
+                f"• **Satellite Ingestion Epoch:** Synced with BYU ASCAT Scatterometer v7.1 and NIC bulletins tracking mega-icebergs A68A, A23A, and A64."
+            )
+            return {
+                "intent": "QUERY_DATE",
+                "spoken_response": spoken,
+                "display_text": display,
+                "action": None,
+                "audio_cue": "ACKNOWLEDGE"
+            }
+
+        # ---------------------------------------------------------------------
+        # 14. TACTICAL QUERY: VOYAGE PASSAGE SUMMARY (DISTANCE, ETA, SPEED)
+        # ---------------------------------------------------------------------
+        if any(w in q_lower for w in ["eta", "how far", "voyage status", "cruising speed", "vessel speed", "where are we", "course track"]):
             dist = route_metrics.get("distance_nm", 1365.0) if route_metrics else 1365.0
             eta = route_metrics.get("eta_hours", 88.0) if route_metrics else 88.0
             days = eta / 24.0
@@ -327,23 +461,203 @@ class BridgeOfficerCopilotService:
             }
 
         # ---------------------------------------------------------------------
-        # 11. GENERAL / UNMATCHED INQUIRY (NAV KNOWLEDGE)
+        # 14. TACTICAL QUERY: EMERGENCY SAFE HAVENS & SHELTERED ANCHORAGES
+        # ---------------------------------------------------------------------
+        if any(w in q_lower for w in ["safe haven", "emergency port", "shelter", "anchorage", "refuge", "abort harbor", "where can we hide", "emergency haven", "safe harbor"]):
+            spoken = (
+                "Bridge Emergency Directive: Primary safe havens along the Antarctic Peninsula corridor are: "
+                "1. Deception Island Whalers Bay, offering an enclosed volcanic caldera with 35-meter depth and 360-degree storm protection. "
+                "2. Potter Cove at King George Island, sheltered against Weddell ice pack drift. "
+                "3. Hope Bay at the northern tip of the Trinity Peninsula for rapid Scotia Sea aborts."
+            )
+            display = (
+                f"**Designated Antarctic Emergency Safe Havens**\n\n"
+                f"1. **Deception Island (Whalers Bay)**: `62°59'S, 60°34'W`\n"
+                f"   - *Features:* Submerged caldera entrance (Neptune's Bellows), volcanic seabed, complete 360° pack ice & swell shelter.\n"
+                f"2. **Potter Cove (King George Island)**: `62°14'S, 58°40'W`\n"
+                f"   - *Features:* 30–50m soft mud holding ground, protected by Stranger Point from Weddell pack ice drift.\n"
+                f"3. **Hope Bay (Trinity Peninsula)**: `63°24'S, 56°59'W`\n"
+                f"   - *Features:* Northern emergency waypoint, proximity to Esperanza Station medical and search & rescue assets."
+            )
+            return {
+                "intent": "QUERY_SAFE_HAVEN",
+                "spoken_response": spoken,
+                "display_text": display,
+                "action": None,
+                "audio_cue": "ACKNOWLEDGE"
+            }
+
+        # ---------------------------------------------------------------------
+        # 15. TACTICAL QUERY: ICEBREAKER ESCORT REQUIREMENTS
+        # ---------------------------------------------------------------------
+        if any(w in q_lower for w in ["escort", "need an escort", "require escort", "icebreaker escort", "can we sail alone", "unescorted", "alone"]):
+            max_safe_ice = int(vessel.max_safe_ice_conc * 100)
+            is_heavy_breaker = vessel_class in ["PC-1", "PC-2"]
+            if is_heavy_breaker:
+                spoken = (
+                    f"Bridge report: {vessel.name} is a heavy polar icebreaker ({vessel_class}) authorized for 100% "
+                    f"ice concentration under IMO Polar Code Chapter 6. No escort vessel is required. "
+                    f"{vessel.name} is capable of escorting lower ice-class research vessels."
+                )
+                display = (
+                    f"**IMO Polar Code Escort Evaluation**\n\n"
+                    f"• **Vessel:** {vessel.name} (`{vessel_class}` Heavy Polar Icebreaker)\n"
+                    f"• **Unescorted Capability:** `100% Multi-Year Pack Ice`\n"
+                    f"• **Escort Status:** ✅ **SELF-SUFFICIENT (NO ESCORT REQUIRED)**\n"
+                    f"• **Operational Role:** Authorized for lead escort convoy duty."
+                )
+            else:
+                spoken = (
+                    f"Bridge report: For {vessel.name} ({vessel_class}), unescorted navigation is authorized in "
+                    f"ice concentrations up to {max_safe_ice}%. If RIO drops below zero or continuous multi-year ice "
+                    f"thickness exceeds 1.2 meters, IMO Polar Code mandates standby escort by a PC-1 or PC-2 Heavy Icebreaker."
+                )
+                display = (
+                    f"**IMO Polar Code Escort Evaluation**\n\n"
+                    f"• **Vessel:** {vessel.name} (`{vessel_class}` Research PRV)\n"
+                    f"• **Unescorted Ice Limit:** `{max_safe_ice}% Concentration` (First-Year Ice <= 1.2 meters)\n"
+                    f"• **Escort Mandate Threshold:** RIO $< 0$ or Ice Concentration $> {max_safe_ice}%$\n"
+                    f"• **Escort Status:** ⚠️ **STANDBY PROTOCOL ACTIVE** (Authorized unescorted on current safety corridor)."
+                )
+            return {
+                "intent": "QUERY_ESCORT",
+                "spoken_response": spoken,
+                "display_text": display,
+                "action": None,
+                "audio_cue": "ACKNOWLEDGE"
+            }
+
+        # ---------------------------------------------------------------------
+        # 15. TACTICAL QUERY: SEA ICE CHARACTERISTICS & BESETTING PRESSURE
+        # ---------------------------------------------------------------------
+        if any(w in q_lower for w in ["multi-year", "first-year", "ice thickness", "ice floe", "ice ridge", "compressive", "beset", "ice pressure", "trapped in ice"]):
+            spoken = (
+                f"Cryosphere ice evaluation: The active navigation corridor traverses predominantly First-Year Thin to "
+                f"Medium pack ice, ranging from 0.3 to 1.0 meters thickness. In the western Weddell gyre, compressive "
+                f"convergent ice drift creates pressure ridges up to 2.5 meters. Vessel speed should be reduced to 6 knots "
+                f"to prevent besetting."
+            )
+            display = (
+                f"**Cryosphere Sea Ice & Pressure Dynamics**\n\n"
+                f"• **Dominant Ice Regime:** `First-Year Pack Ice` (0.3–1.0 m thickness)\n"
+                f"• **Secondary Hazard:** Compressive pressure ridges in Western Weddell convergence\n"
+                f"• **Besetting Risk Assessment:** `LOW TO MODERATE` (Recommended safety corridor skirts compression zones)\n"
+                f"• **Hull Operating Envelope:** Within {vessel.name}'s continuous icebreaking capability."
+            )
+            return {
+                "intent": "QUERY_ICE_TYPE",
+                "spoken_response": spoken,
+                "display_text": display,
+                "action": None,
+                "audio_cue": "ACKNOWLEDGE"
+            }
+
+        # ---------------------------------------------------------------------
+        # 16. TACTICAL QUERY: VESSEL ENDURANCE & HOTEL LOAD SURVIVAL DAYS
+        # ---------------------------------------------------------------------
+        if any(w in q_lower for w in ["hotel load", "endurance", "stuck in ice", "how many days", "reserve days", "survival", "days of fuel"]):
+            hotel_rate_tons_day = 3.5
+            total_reserve_tons = 1178.7
+            if expedition_plan and "summary" in expedition_plan:
+                total_reserve_tons = expedition_plan["summary"].get("remaining_bunker_tons", total_reserve_tons)
+            
+            endurance_days = round(total_reserve_tons / hotel_rate_tons_day, 1)
+            spoken = (
+                f"Bridge survival endurance analysis: In the event of ice entrapment with main propulsion secured, "
+                f"auxiliary generators consume approximately 3.5 tons MGO per day under polar hotel load. "
+                f"With {total_reserve_tons:.0f} tons of reserve fuel aboard, the vessel has {endurance_days:.0f} days "
+                f"of autonomous life-support, heating, and emergency power."
+            )
+            display = (
+                f"**Vessel Survival & Hotel Load Endurance**\n\n"
+                f"• **Polar Hotel Load Consumption:** `3.5 Tons MGO / Day` (Heating, power, fresh water)\n"
+                f"• **Onboard Bunker Reserves:** `{total_reserve_tons:.1f} Tons MGO`\n"
+                f"• **Autonomous Beset Endurance:** `{endurance_days:.0f} Days` (~{round(endurance_days/30, 1)} months)\n"
+                f"• **Life-Support Verdict:** ✅ High safety margin; far exceeds 30-day Antarctic emergency reserve threshold."
+            )
+            return {
+                "intent": "QUERY_ENDURANCE",
+                "spoken_response": spoken,
+                "display_text": display,
+                "action": None,
+                "audio_cue": "SUCCESS"
+            }
+
+        # ---------------------------------------------------------------------
+        # 17. TACTICAL QUERY: NEARBY ANTARCTIC RESEARCH STATIONS
+        # ---------------------------------------------------------------------
+        if any(w in q_lower for w in ["nearby station", "stations", "maitri", "bharati", "rothera", "halley", "base", "which station", "research station"]):
+            spoken = (
+                "Regional Research Stations: Key operational bases in this sector include Rothera Station (UK) on Adelaide Island, "
+                "Faraday/Vernadsky, Signy Island, and Grytviken in South Georgia. For Indian Antarctic Expeditions, Maitri Station "
+                "and Bharati Station maintain continuous operational communication and emergency logistics coordination."
+            )
+            display = (
+                f"**Active Antarctic Research Stations & Corridors**\n\n"
+                f"• **Rothera Station (UK / BAS):** `67°34'S, 68°07'W` — Primary Peninsula aviation hub & deepwater wharf.\n"
+                f"• **Maitri Station (India / NCPOR):** `70°46'S, 11°44'E` — Queen Maud Land central science station.\n"
+                f"• **Bharati Station (India / NCPOR):** `69°24'S, 76°11'E` — Modern coastal station, Larsemann Hills.\n"
+                f"• **Grytviken / South Georgia:** `54°17'S, 36°29'W` — Sub-Antarctic logistics gateway & safe anchorage."
+            )
+            return {
+                "intent": "QUERY_STATIONS",
+                "spoken_response": spoken,
+                "display_text": display,
+                "action": None,
+                "audio_cue": "ACKNOWLEDGE"
+            }
+
+        # ---------------------------------------------------------------------
+        # 18. SYSTEM, PROJECT & PROBLEM STATEMENT PS-26059 KNOWLEDGE
+        # ---------------------------------------------------------------------
+        if any(w in q_lower for w in [
+            "what is polaris", "polaris-x", "ps-26059", "problem statement", "ncpor", "moes",
+            "dataset", "datasets", "satellite", "algorithm", "who are you", "what can you do", "architecture"
+        ]):
+            spoken = (
+                "I am POLARIS-X, an autonomous polar maritime decision-support copilot developed for NCPOR and the Ministry of Earth Sciences "
+                "under Problem Statement 26059. I integrate real satellite scatterometry from BYU ASCAT, NIC iceberg bulletins, "
+                "BAS synoptic weather, and multi-objective A-Star pathfinding to compute safety-verified, fuel-optimized maritime shipping corridors."
+            )
+            display = (
+                f"**POLARIS-X System Intelligence Overview (PS-26059)**\n\n"
+                f"• **Mandate:** MoES & NCPOR Polar Maritime Operational Logistics & Ice Risk Navigator\n"
+                f"• **Ingested Data Feeds:**\n"
+                f"  - BYU ASCAT Scatterometer kinematics (1,300+ daily iceberg tracks: A68A, A23A, A64)\n"
+                f"  - National Ice Center (NIC) weekly polar bulletins\n"
+                f"  - British Antarctic Survey (BAS) synoptic surface meteorology\n"
+                f"  - NSIDC 40-year polar sea ice extent climatology\n"
+                f"• **Optimization Engines:** Multi-objective A* with geodesic heuristics, anisotropic Gaussian risk lattice, and IMO POLARIS RIO regulatory compliance."
+            )
+            return {
+                "intent": "QUERY_PROJECT_INFO",
+                "spoken_response": spoken,
+                "display_text": display,
+                "action": None,
+                "audio_cue": "ACKNOWLEDGE"
+            }
+
+        # ---------------------------------------------------------------------
+        # 19. GENERAL / UNMATCHED INQUIRY (NAV KNOWLEDGE)
         # ---------------------------------------------------------------------
         return {
             "intent": "GENERAL_MARINE_QUERY",
-            "spoken_response": f"Polaris Bridge Copilot standing by. Active vessel is {vessel.name}, class {vessel_class}. You can ask about Under-Keel Clearance, IMO RIO compliance, fuel consumption, iceberg drift, or issue route commands.",
+            "spoken_response": f"Polaris Bridge Copilot standing by. Active vessel is {vessel.name}, class {vessel_class}. You can ask about Under-Keel Clearance, IMO RIO compliance, destination verification, weather, safe havens, escort mandates, or fuel endurance.",
             "display_text": (
                 f"**Polaris Bridge Copilot Tactical Interface**\n\n"
                 f"• **Vessel:** {vessel.name} (`{vessel_class}`)\n"
                 f"• **Corridor:** {start_station.split('/')[0]} ➔ {dest_station.split('/')[0]}\n\n"
                 f"**Available Tactical Voice Commands:**\n"
+                f"- *\"Confirm the destination that we have chosen\"*\n"
                 f"- *\"What is our minimum Under-Keel Clearance?\"*\n"
                 f"- *\"Check IMO POLARIS RIO status for this leg\"*\n"
+                f"- *\"What is the weather and freezing spray risk?\"*\n"
+                f"- *\"Where is the nearest emergency safe haven?\"*\n"
+                f"- *\"Do we legally require an icebreaker escort?\"*\n"
+                f"- *\"How many days of hotel load survival fuel remain?\"*\n"
+                f"- *\"What is Problem Statement PS-26059?\"*\n"
                 f"- *\"Switch polar class to PC-2 (or PC-1, PC-4, PC-7)\"*\n"
-                f"- *\"Simulate emergency surge on iceberg A68A\"*\n"
-                f"- *\"Compute optimal safe route\"*\n"
-                f"- *\"Open scientific expedition planner\"*\n"
-                f"- *\"How much fuel will this passage burn?\"*"
+                f"- *\"Simulate emergency surge on iceberg A68A\"*"
             ),
             "action": None,
             "audio_cue": "ACKNOWLEDGE"

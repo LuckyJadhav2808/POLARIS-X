@@ -374,7 +374,11 @@ export interface CopilotAction {
 
 export interface CopilotQueryRequest {
   transcript: string;
+  query?: string;
   active_polar_class?: string;
+  start_station?: string;
+  dest_station?: string;
+  simulation_date?: string;
   context?: Record<string, any>;
 }
 

@@ -141,12 +141,12 @@ Antarctic weather forecasts and iceberg drift tracking carry natural uncertainty
   On an icy vessel bridge in heavy seas with bridge gloves on, navigators need quick hands-free tactical queries. Polaris Bridge Copilot provides two-way natural voice interaction, Web Audio tactical radio cues (Roger pings, caution sirens, sonar chirps), intent extraction, and automated cockpit control execution.
 - **Key Capabilities**:
   1. **Hands-free voice recognition**: Web Speech API (`webkitSpeechRecognition` / `SpeechRecognition`) with push-to-talk mic and fallback text bar.
-  2. **Tactical soundings & queries**: Real-time Under-Keel Clearance (UKC) evaluation, IMO POLARIS RIO limits, passage distance & bunker depletion, and mega-iceberg drift assessments.
+  2. **Tactical soundings & queries**: Real-time Under-Keel Clearance (UKC), IMO POLARIS RIO limits, destination & waypoint verification, BAS synoptic weather & topside freezing spray, emergency safe havens, icebreaker escort mandates, first-year vs multi-year ice compression, vessel hotel load survival endurance, and PS-26059 project architecture.
   3. **Direct cockpit control**: Dispatches and applies live actions directly to the deck (`SET_POLAR_CLASS`, `TRIGGER_COMPUTE_ROUTE`, `TRIGGER_SURGE_DEMO`, `OPEN_EXPEDITION_MODAL`, `OPEN_TRADEOFFS_HUD`, `OPEN_XAI_MODAL`).
   4. **Crisp officer TTS & synthesized chimes**: Authoritative voice synthesis with `window.speechSynthesis` and synthesized harmonic Web Audio cues.
 - **Files**:
   - Backend: [`backend/app/services/copilot.py`](backend/app/services/copilot.py), [`backend/app/api/routes.py`](backend/app/api/routes.py)
-  - Unit Tests: [`backend/tests/test_copilot.py`](backend/tests/test_copilot.py) (8/8 tests passed)
+  - Unit Tests: [`backend/tests/test_copilot.py`](backend/tests/test_copilot.py) (15/15 tests passed)
   - Frontend: [`frontend/src/lib/voice.ts`](frontend/src/lib/voice.ts), [`frontend/src/components/PolarisCopilotHUD.tsx`](frontend/src/components/PolarisCopilotHUD.tsx), [`frontend/src/app/page.tsx`](frontend/src/app/page.tsx)
 - **Verified via Browser Testing**:
   - Live session recording: `copilot_hud_demo_1790429179202.webp`

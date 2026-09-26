@@ -39,6 +39,9 @@ interface PolarisCopilotHUDProps {
   isOpen: boolean;
   onClose: () => void;
   activePolarClass: string;
+  simulationDate?: string;
+  startStation?: string;
+  destStation?: string;
   routeData: RouteResponse | null;
   onExecuteAction: (action: CopilotAction) => void;
 }
@@ -46,6 +49,10 @@ interface PolarisCopilotHUDProps {
 const QUICK_DIRECTIVES = [
   { label: "Sound UKC & Bathymetry", query: "Sound under-keel clearance and bathymetry safe margin" },
   { label: "IMO POLARIS RIO Check", query: "Check IMO POLARIS RIO regulatory compliance" },
+  { label: "Departure Date & Timeline", query: "What is the date of starting our journey?" },
+  { label: "Confirm Destination", query: "Confirm the destination that we have chosen" },
+  { label: "Weather & Freezing Spray", query: "What is the weather and wind speed ahead?" },
+  { label: "Emergency Safe Havens", query: "Where is the nearest emergency safe haven?" },
   { label: "Switch to Polar Class PC-2", query: "Switch polar class to PC-2 heavy icebreaker" },
   { label: "Simulate Iceberg Calving Surge", query: "Simulate iceberg calving surge warning" },
   { label: "Open Expedition Planner", query: "Open multi-waypoint expedition logistics planner" },
@@ -57,6 +64,9 @@ export const PolarisCopilotHUD: React.FC<PolarisCopilotHUDProps> = ({
   isOpen,
   onClose,
   activePolarClass,
+  simulationDate,
+  startStation,
+  destStation,
   routeData,
   onExecuteAction,
 }) => {
@@ -119,6 +129,9 @@ export const PolarisCopilotHUD: React.FC<PolarisCopilotHUDProps> = ({
     // Gather live context
     const context: Record<string, any> = {
       has_route: Boolean(routeData),
+      simulation_date: simulationDate || (routeData as any)?.simulation_date || "2021-03-15",
+      start_station: startStation || "Rothera Station",
+      dest_station: destStation || "Grytviken / South Georgia",
       min_ukc_meters: routeData?.bathymetry?.min_under_keel_clearance_m,
       safe_margin_verified: routeData?.bathymetry?.is_safe,
       rio_status: routeData?.rio_profile?.overall_status,
@@ -133,6 +146,9 @@ export const PolarisCopilotHUD: React.FC<PolarisCopilotHUDProps> = ({
       const response = await queryCopilot({
         transcript: trimmed,
         active_polar_class: activePolarClass,
+        start_station: startStation || "Rothera Station",
+        dest_station: destStation || "Grytviken / South Georgia",
+        simulation_date: simulationDate || "2021-03-15",
         context,
       });
 

@@ -452,6 +452,9 @@ export default function PolarisCockpit() {
         isOpen={isCopilotOpen}
         onClose={() => setIsCopilotOpen(false)}
         activePolarClass={selectedPolarClass}
+        simulationDate={simulationDate}
+        startStation={selectedStart}
+        destStation={selectedDest}
         routeData={routeData}
         onExecuteAction={handleExecuteCopilotAction}
       />
